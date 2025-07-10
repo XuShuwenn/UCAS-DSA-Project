@@ -1,0 +1,611 @@
+#include "visualizer.h"
+#include <iostream>
+#include <iomanip>
+#include <fstream>
+#include <sstream>
+#include <cstdlib>
+#include <set>
+#include <thread>
+#include <chrono>
+#include <cstring>
+
+/**
+ * 可视化器的实现 - 支持线段墙壁显示
+ * 提供多种迷宫显示方式和动画效果
+ */
+
+// 颜色代码定义
+const std::string Visualizer::Colors::RESET = "\033[0m";
+const std::string Visualizer::Colors::BLACK = "\033[30m";
+const std::string Visualizer::Colors::RED = "\033[31m";
+const std::string Visualizer::Colors::GREEN = "\033[32m";
+const std::string Visualizer::Colors::YELLOW = "\033[33m";
+const std::string Visualizer::Colors::BLUE = "\033[34m";
+const std::string Visualizer::Colors::MAGENTA = "\033[35m";
+const std::string Visualizer::Colors::CYAN = "\033[36m";
+const std::string Visualizer::Colors::WHITE = "\033[37m";
+const std::string Visualizer::Colors::BG_BLACK = "\033[40m";
+const std::string Visualizer::Colors::BG_RED = "\033[41m";
+const std::string Visualizer::Colors::BG_GREEN = "\033[42m";
+const std::string Visualizer::Colors::BG_YELLOW = "\033[43m";
+const std::string Visualizer::Colors::BG_BLUE = "\033[44m";
+const std::string Visualizer::Colors::BG_MAGENTA = "\033[45m";
+const std::string Visualizer::Colors::BG_CYAN = "\033[46m";
+const std::string Visualizer::Colors::BG_WHITE = "\033[47m";
+
+Visualizer::Visualizer(DisplayMode mode, bool useColors, int animationDelay)
+    : mode(mode), useColors(useColors && isColorSupported()), animationDelay(animationDelay) {
+}
+
+void Visualizer::displayMaze(const Maze& maze) const {
+    if (mode == ANIMATED) {
+        clearScreen();
+    }
+    
+    displayMazeWithLineWalls(maze);
+}
+
+void Visualizer::displayMazeWithLineWalls(const Maze& maze) const {
+    std::cout << "\n" << getColorCode(Colors::CYAN) << "迷宫结构（线段表示墙壁）：" 
+              << getColorCode(Colors::RESET) << "\n\n";
+    
+    int rows = maze.getRows();
+    int cols = maze.getCols();
+    
+    // 显示列标号
+    std::cout << "    ";
+    for (int j = 0; j < cols; j++) {
+        std::cout << std::setw(4) << j;
+    }
+    std::cout << "\n";
+    
+    // 显示顶部边界
+    std::cout << "  ┌";
+    for (int j = 0; j < cols; j++) {
+        if (maze.hasWall(0, j, WallDirection::TOP)) {
+            std::cout << "───";
+        } else {
+            std::cout << "   ";
+        }
+        if (j < cols - 1) {
+            std::cout << "┬";
+        }
+    }
+    std::cout << "┐\n";
+    
+    // 显示迷宫内容
+    for (int i = 0; i < rows; i++) {
+        // 显示行标号和左边界
+        std::cout << std::setw(2) << i << (maze.hasWall(i, 0, WallDirection::LEFT) ? "│" : " ");
+        
+        for (int j = 0; j < cols; j++) {
+            // 显示格子内容
+            std::string cellContent = getCellSymbol(maze.getCell(i, j));
+            std::cout << cellContent;
+            
+            // 显示右边界
+            if (j < cols - 1) {
+                if (maze.hasWall(i, j, WallDirection::RIGHT)) {
+                    std::cout << "│";
+                } else {
+                    std::cout << " ";
+                }
+            }
+        }
+        
+        // 显示最右边界
+        std::cout << (maze.hasWall(i, cols-1, WallDirection::RIGHT) ? "│" : " ") << "\n";
+        
+        // 显示底部边界（除最后一行）
+        if (i < rows - 1) {
+            std::cout << "  ";
+            
+            // 左侧连接符
+            bool hasLeftBottom = maze.hasWall(i, 0, WallDirection::BOTTOM);
+            bool hasLeftTop = maze.hasWall(i+1, 0, WallDirection::TOP);
+            bool hasLeftLeft = maze.hasWall(i, 0, WallDirection::LEFT);
+            bool hasNextLeftLeft = maze.hasWall(i+1, 0, WallDirection::LEFT);
+            
+            if ((hasLeftBottom || hasLeftTop) && (hasLeftLeft || hasNextLeftLeft)) {
+                std::cout << "├";
+            } else if (hasLeftBottom || hasLeftTop) {
+                std::cout << "─";
+            } else if (hasLeftLeft || hasNextLeftLeft) {
+                std::cout << "│";
+            } else {
+                std::cout << " ";
+            }
+            
+            // 中间的水平线和连接符
+            for (int j = 0; j < cols; j++) {
+                // 水平线
+                bool hasBottom = maze.hasWall(i, j, WallDirection::BOTTOM);
+                bool hasTop = maze.hasWall(i+1, j, WallDirection::TOP);
+                if (hasBottom || hasTop) {
+                    std::cout << "───";
+                } else {
+                    std::cout << "   ";
+                }
+                
+                // 连接符（除最后一列）
+                if (j < cols - 1) {
+                    bool hasCurrentBottom = hasBottom || hasTop;
+                    bool hasRightBottom = maze.hasWall(i, j+1, WallDirection::BOTTOM) || 
+                                         maze.hasWall(i+1, j+1, WallDirection::TOP);
+                    bool hasCurrentRight = maze.hasWall(i, j, WallDirection::RIGHT);
+                    bool hasNextRight = maze.hasWall(i+1, j, WallDirection::RIGHT);
+                    
+                    char connector = getConnector(hasCurrentBottom, hasRightBottom, 
+                                                hasCurrentRight, hasNextRight);
+                    std::cout << connector;
+                }
+            }
+            
+            // 右侧连接符
+            bool hasRightBottom = maze.hasWall(i, cols-1, WallDirection::BOTTOM);
+            bool hasRightTop = maze.hasWall(i+1, cols-1, WallDirection::TOP);
+            bool hasRightRight = maze.hasWall(i, cols-1, WallDirection::RIGHT);
+            bool hasNextRightRight = maze.hasWall(i+1, cols-1, WallDirection::RIGHT);
+            
+            if ((hasRightBottom || hasRightTop) && (hasRightRight || hasNextRightRight)) {
+                std::cout << "┤";
+            } else if (hasRightBottom || hasRightTop) {
+                std::cout << "─";
+            } else if (hasRightRight || hasNextRightRight) {
+                std::cout << "│";
+            } else {
+                std::cout << " ";
+            }
+            
+            std::cout << "\n";
+        }
+    }
+    
+    // 显示底部边界
+    std::cout << "  └";
+    for (int j = 0; j < cols; j++) {
+        if (maze.hasWall(rows-1, j, WallDirection::BOTTOM)) {
+            std::cout << "───";
+        } else {
+            std::cout << "   ";
+        }
+        if (j < cols - 1) {
+            std::cout << "┴";
+        }
+    }
+    std::cout << "┘\n\n";
+}
+
+char Visualizer::getConnector(bool hasLeft, bool hasRight, bool hasTop, bool hasBottom) const {
+    int connections = (hasLeft ? 1 : 0) + (hasRight ? 1 : 0) + (hasTop ? 1 : 0) + (hasBottom ? 1 : 0);
+    
+    if (connections == 4) return '┼';
+    if (connections == 3) {
+        if (!hasLeft) return '├';
+        if (!hasRight) return '┤';
+        if (!hasTop) return '┬';
+        if (!hasBottom) return '┴';
+    }
+    if (connections == 2) {
+        if (hasLeft && hasRight) return '─';
+        if (hasTop && hasBottom) return '│';
+        if (hasLeft && hasTop) return '┘';
+        if (hasLeft && hasBottom) return '┐';
+        if (hasRight && hasTop) return '└';
+        if (hasRight && hasBottom) return '┌';
+    }
+    if (connections == 1) {
+        if (hasLeft || hasRight) return '─';
+        if (hasTop || hasBottom) return '│';
+    }
+    
+    return ' ';
+}
+
+std::string Visualizer::getCellSymbol(const MazeCell& cell) const {
+    std::string symbol;
+    std::string colorCode;
+    
+    switch (cell.type) {
+        case CellType::ENTRANCE:
+            symbol = " S ";
+            colorCode = useColors ? Colors::BG_GREEN + Colors::BLACK : "";
+            break;
+        case CellType::EXIT:
+            symbol = " E ";
+            colorCode = useColors ? Colors::BG_RED + Colors::WHITE : "";
+            break;
+        case CellType::VISITED:
+            symbol = " · ";
+            colorCode = useColors ? Colors::BG_YELLOW + Colors::BLACK : "";
+            break;
+        default:  // PATH
+            symbol = "   ";
+            colorCode = "";
+            break;
+    }
+    
+    if (useColors && !colorCode.empty()) {
+        return colorCode + symbol + Colors::RESET;
+    }
+    return symbol;
+}
+
+void Visualizer::displayMazeWithPath(const Maze& maze, const std::vector<Point>& path) const {
+    Maze tempMaze = maze.clone();
+    
+    // 标记路径
+    for (const Point& p : path) {
+        if (p != maze.getEntrance() && p != maze.getExit()) {
+            tempMaze.setCellType(p, CellType::VISITED);
+        }
+    }
+    
+    displayMazeWithLineWalls(tempMaze);
+    
+    // 显示路径信息
+    std::cout << getColorCode(Colors::CYAN) << "路径信息：" << getColorCode(Colors::RESET) << "\n";
+    std::cout << "路径长度: " << (path.empty() ? 0 : path.size() - 1) << " 步\n";
+    std::cout << "路径坐标: ";
+    for (size_t i = 0; i < path.size(); i++) {
+        if (i > 0) std::cout << " → ";
+        std::cout << "(" << path[i].x << "," << path[i].y << ")";
+        if (i > 0 && i % 8 == 0) std::cout << "\n          ";
+    }
+    std::cout << "\n\n";
+}
+
+void Visualizer::animatePathFinding(Maze& maze, const std::vector<Point>& searchOrder,
+                                  const std::vector<Point>& finalPath) const {
+    if (mode != ANIMATED) {
+        displayMazeWithPath(maze, finalPath);
+        return;
+    }
+    
+    std::cout << getColorCode(Colors::YELLOW) << "开始路径搜索动画..." << getColorCode(Colors::RESET) << "\n\n";
+    
+    // 重置迷宫
+    maze.resetVisited();
+    
+    // 逐步显示搜索过程
+    for (size_t i = 0; i < searchOrder.size(); i++) {
+        const Point& current = searchOrder[i];
+        
+        if (current != maze.getEntrance() && current != maze.getExit()) {
+            maze.setCellType(current, CellType::VISITED);
+        }
+        
+        clearScreen();
+        std::cout << getColorCode(Colors::CYAN) << "搜索进度: " << (i + 1) << "/" << searchOrder.size() 
+                  << getColorCode(Colors::RESET) << "\n";
+        displayMazeWithLineWalls(maze);
+        
+        std::this_thread::sleep_for(std::chrono::milliseconds(animationDelay));
+    }
+    
+    // 显示最终路径
+    std::cout << getColorCode(Colors::GREEN) << "找到路径！显示最终结果..." << getColorCode(Colors::RESET) << "\n\n";
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    
+    clearScreen();
+    displayMazeWithPath(maze, finalPath);
+}
+
+void Visualizer::exportToHTML(const Maze& maze, const std::vector<Point>& path, 
+                            const std::string& filename) const {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "无法创建HTML文件: " << filename << std::endl;
+        return;
+    }
+    
+    file << generateHTMLHeader();
+    file << generateMazeHTML(maze, path);
+    file << generateHTMLFooter();
+    
+    file.close();
+    std::cout << getColorCode(Colors::GREEN) << "迷宫已导出到HTML文件: " << filename 
+              << getColorCode(Colors::RESET) << std::endl;
+}
+
+std::string Visualizer::generateHTMLHeader() const {
+    return R"(<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>迷宫可视化</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 20px;
+        }
+        .maze-container {
+            display: inline-block;
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .maze-grid {
+            display: grid;
+            gap: 1px;
+            background-color: #333;
+            border: 2px solid #333;
+        }
+        .maze-cell {
+            width: 30px;
+            height: 30px;
+            position: relative;
+            background-color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .cell-wall-top { border-top: 3px solid #333; }
+        .cell-wall-right { border-right: 3px solid #333; }
+        .cell-wall-bottom { border-bottom: 3px solid #333; }
+        .cell-wall-left { border-left: 3px solid #333; }
+        .cell-entrance { background-color: #4CAF50; color: white; }
+        .cell-exit { background-color: #F44336; color: white; }
+        .cell-path { background-color: #FFEB3B; }
+        .cell-visited { background-color: #FFC107; }
+        .info-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8e8e8;
+            border-radius: 5px;
+        }
+        h1 { color: #333; text-align: center; }
+        h2 { color: #666; }
+    </style>
+</head>
+<body>
+    <h1>🏃 迷宫路径可视化 🏃</h1>
+)";
+}
+
+std::string Visualizer::generateMazeHTML(const Maze& maze, const std::vector<Point>& path) const {
+    std::ostringstream html;
+    
+    int rows = maze.getRows();
+    int cols = maze.getCols();
+    
+    // 创建路径标记集合
+    std::set<Point> pathSet;
+    for (const Point& p : path) {
+        pathSet.insert(p);
+    }
+    
+    html << "    <div class=\"maze-container\">\n";
+    html << "        <div class=\"maze-grid\" style=\"grid-template-columns: repeat(" 
+         << cols << ", 30px);\">\n";
+    
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            const MazeCell& cell = maze.getCell(i, j);
+            Point currentPoint(i, j);
+            
+            html << "            <div class=\"maze-cell";
+            
+            // 添加墙壁样式
+            if (cell.hasWall(WallDirection::TOP)) html << " cell-wall-top";
+            if (cell.hasWall(WallDirection::RIGHT)) html << " cell-wall-right";
+            if (cell.hasWall(WallDirection::BOTTOM)) html << " cell-wall-bottom";
+            if (cell.hasWall(WallDirection::LEFT)) html << " cell-wall-left";
+            
+            // 添加格子类型样式
+            if (cell.type == CellType::ENTRANCE) {
+                html << " cell-entrance\">S";
+            } else if (cell.type == CellType::EXIT) {
+                html << " cell-exit\">E";
+            } else if (pathSet.count(currentPoint) > 0) {
+                html << " cell-path\">•";
+            } else {
+                html << "\">&nbsp;";
+            }
+            
+            html << "</div>\n";
+        }
+    }
+    
+    html << "        </div>\n";
+    html << "        <div class=\"info-panel\">\n";
+    html << "            <h2>迷宫信息</h2>\n";
+    html << "            <p><strong>尺寸:</strong> " << rows << " × " << cols << "</p>\n";
+    html << "            <p><strong>入口:</strong> (" << maze.getEntrance().x << ", " 
+         << maze.getEntrance().y << ")</p>\n";
+    html << "            <p><strong>出口:</strong> (" << maze.getExit().x << ", " 
+         << maze.getExit().y << ")</p>\n";
+    html << "            <p><strong>路径长度:</strong> " << (path.empty() ? 0 : path.size() - 1) << " 步</p>\n";
+    html << "            <p><strong>总墙壁数:</strong> " << maze.countWalls() << "</p>\n";
+    html << "        </div>\n";
+    html << "    </div>\n";
+    
+    return html.str();
+}
+
+std::string Visualizer::generateHTMLFooter() const {
+    return R"(</body>
+</html>)";
+}
+
+void Visualizer::exportToText(const Maze& maze, const std::vector<Point>& path, 
+                            const std::string& filename) const {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "无法创建文本文件: " << filename << std::endl;
+        return;
+    }
+    
+    // 重定向cout到文件
+    std::streambuf* oldCoutBuffer = std::cout.rdbuf();
+    std::cout.rdbuf(file.rdbuf());
+    
+    // 输出迷宫信息
+    std::cout << "迷宫路径寻找结果\n";
+    std::cout << "================\n\n";
+    std::cout << "迷宫尺寸: " << maze.getRows() << " × " << maze.getCols() << "\n";
+    std::cout << "入口位置: (" << maze.getEntrance().x << ", " << maze.getEntrance().y << ")\n";
+    std::cout << "出口位置: (" << maze.getExit().x << ", " << maze.getExit().y << ")\n";
+    std::cout << "路径长度: " << (path.empty() ? 0 : path.size() - 1) << " 步\n\n";
+    
+    // 输出迷宫结构
+    displayMazeWithPath(maze, path);
+    
+    // 恢复cout
+    std::cout.rdbuf(oldCoutBuffer);
+    file.close();
+    
+    std::cout << getColorCode(Colors::GREEN) << "迷宫已导出到文本文件: " << filename 
+              << getColorCode(Colors::RESET) << std::endl;
+}
+
+void Visualizer::printStatistics(const Maze& maze) const {
+    std::cout << getColorCode(Colors::CYAN) << "\n=== 迷宫统计信息 ===" << getColorCode(Colors::RESET) << "\n";
+    std::cout << "迷宫尺寸: " << maze.getRows() << " × " << maze.getCols() << "\n";
+    std::cout << "总格子数: " << maze.getRows() * maze.getCols() << "\n";
+    std::cout << "墙壁数量: " << maze.countWalls() << "\n";
+    std::cout << "开放通道: " << maze.countOpenPaths() << "\n";
+    std::cout << "连通性: " << std::fixed << std::setprecision(1) 
+              << maze.getConnectivity() * 100 << "%\n";
+    std::cout << "入口位置: (" << maze.getEntrance().x << ", " << maze.getEntrance().y << ")\n";
+    std::cout << "出口位置: (" << maze.getExit().x << ", " << maze.getExit().y << ")\n\n";
+}
+
+void Visualizer::clearScreen() const {
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
+void Visualizer::drawBorder(int width, int style) const {
+    std::string borderChar = (style == 1) ? "═" : "─";
+    std::string corner = (style == 1) ? "╔" : "┌";
+    std::string endCorner = (style == 1) ? "╗" : "┐";
+    
+    std::cout << corner;
+    for (int i = 0; i < width - 2; i++) {
+        std::cout << borderChar;
+    }
+    std::cout << endCorner << std::endl;
+}
+
+bool Visualizer::isColorSupported() const {
+    // 简单检查是否支持颜色输出
+    const char* term = getenv("TERM");
+    return term != nullptr && strstr(term, "color") != nullptr;
+}
+
+std::string Visualizer::getColorCode(const std::string& color) const {
+    return useColors ? color : "";
+}
+
+void Visualizer::setMode(DisplayMode newMode) {
+    mode = newMode;
+}
+
+void Visualizer::setUseColors(bool useColorOutput) {
+    useColors = useColorOutput && isColorSupported();
+}
+
+void Visualizer::setAnimationDelay(int delay) {
+    animationDelay = std::max(0, delay);
+}
+
+void Visualizer::displaySearchResults(const PathFinder::SearchResult& result) const {
+    std::cout << "\n" << getColorCode(Colors::CYAN) << std::string(50, '=') << getColorCode(Colors::RESET) << std::endl;
+    std::cout << "   " << result.algorithm << " 搜索结果" << std::endl;
+    std::cout << getColorCode(Colors::CYAN) << std::string(50, '=') << getColorCode(Colors::RESET) << std::endl;
+    
+    if (result.found) {
+        std::cout << getColorCode(Colors::GREEN) << "状态: 找到路径" << getColorCode(Colors::RESET) << std::endl;
+        std::cout << "路径长度: " << result.steps << " 步" << std::endl;
+    } else {
+        std::cout << getColorCode(Colors::RED) << "状态: 未找到路径" << getColorCode(Colors::RESET) << std::endl;
+    }
+    
+    std::cout << "访问节点数: " << result.visitedNodes << std::endl;
+    std::cout << "搜索时间: " << std::fixed << std::setprecision(3) << result.searchTime << " 毫秒" << std::endl;
+    
+    if (result.found && !result.path.empty()) {
+        std::cout << "\n路径详情:" << std::endl;
+        for (size_t i = 0; i < result.path.size(); i++) {
+            if (i % 5 == 0) std::cout << "\n  ";
+            std::cout << "(" << result.path[i].x << "," << result.path[i].y << ")";
+            if (i < result.path.size() - 1) std::cout << " → ";
+        }
+        std::cout << std::endl;
+    }
+    
+    std::cout << getColorCode(Colors::CYAN) << std::string(50, '=') << getColorCode(Colors::RESET) << std::endl;
+}
+
+void Visualizer::displayComparison(const std::vector<PathFinder::SearchResult>& results) const {
+    if (results.empty()) return;
+    
+    std::cout << "\n" << getColorCode(Colors::CYAN) << std::string(70, '=') << getColorCode(Colors::RESET) << std::endl;
+    std::cout << "                        算法性能比较" << std::endl;
+    std::cout << getColorCode(Colors::CYAN) << std::string(70, '=') << getColorCode(Colors::RESET) << std::endl;
+    
+    // 表头
+    std::cout << std::setw(18) << "算法" 
+              << std::setw(8) << "状态" 
+              << std::setw(10) << "路径长度" 
+              << std::setw(12) << "访问节点数" 
+              << std::setw(12) << "时间(ms)" << std::endl;
+    std::cout << std::string(70, '-') << std::endl;
+    
+    // 数据行
+    for (const auto& result : results) {
+        std::cout << std::setw(18) << result.algorithm
+                  << std::setw(8) << (result.found ? "成功" : "失败")
+                  << std::setw(10) << (result.found ? std::to_string(result.steps) : "N/A")
+                  << std::setw(12) << result.visitedNodes
+                  << std::setw(12) << std::fixed << std::setprecision(3) << result.searchTime
+                  << std::endl;
+    }
+    
+    std::cout << getColorCode(Colors::CYAN) << std::string(70, '=') << getColorCode(Colors::RESET) << std::endl;
+}
+
+void Visualizer::printWelcome() {
+    std::cout << "\n";
+    std::cout << "████████████████████████████████████████████████\n";
+    std::cout << "█                                              █\n";
+    std::cout << "█           🏃 C++ 迷宫寻路系统 🏃             █\n";
+    std::cout << "█               (线段墙壁版本)                 █\n";
+    std::cout << "█                                              █\n";
+    std::cout << "█  功能特性：                                  █\n";
+    std::cout << "█  • 线段表示迷宫墙壁                         █\n";
+    std::cout << "█  • 随机迷宫生成                             █\n";
+    std::cout << "█  • 多种路径寻找算法 (DFS/BFS/A*)            █\n";
+    std::cout << "█  • 算法性能比较                             █\n";
+    std::cout << "█  • 精美可视化展示                           █\n";
+    std::cout << "█  • HTML导出功能                             █\n";
+    std::cout << "█                                              █\n";
+    std::cout << "████████████████████████████████████████████████\n";
+    std::cout << std::endl;
+}
+
+void Visualizer::printHelp() {
+    std::cout << "\n" << std::string(50, '=') << std::endl;
+    std::cout << "                    操作指南" << std::endl;
+    std::cout << std::string(50, '=') << std::endl;
+    std::cout << "1. 生成迷宫 - 创建使用线段表示墙壁的迷宫" << std::endl;
+    std::cout << "2. 选择算法 - DFS(深度优先)/BFS(广度优先)/A*" << std::endl;
+    std::cout << "3. 寻找路径 - 自动寻找从入口到出口的路径" << std::endl;
+    std::cout << "4. 查看结果 - 显示路径和性能统计" << std::endl;
+    std::cout << "5. 比较算法 - 同时运行多种算法进行比较" << std::endl;
+    std::cout << "6. 导出结果 - 保存为文本或HTML文件" << std::endl;
+    std::cout << "\n符号说明:" << std::endl;
+    std::cout << "┌─┐│  - 墙壁线段    S - 起点    E - 终点" << std::endl;
+    std::cout << "     - 通路        · - 搜索过的路径" << std::endl;
+    std::cout << std::string(50, '=') << std::endl;
+}
