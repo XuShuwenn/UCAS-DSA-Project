@@ -434,24 +434,36 @@ private:
     void mondrianMazeAdventure(const Visualizer& visualizer) {
         MondrianMaze mondrian;
         std::vector<std::vector<int>> allPaths;
-        findAllPathsLimited(mondrian, mondrian.getEntranceId(), mondrian.getExitId(), 6, allPaths);
+        // 1. 寻找大量候选路径（最多200条）
+        findAllPathsLimited(mondrian, mondrian.getEntranceId(), mondrian.getExitId(), 200, allPaths);
         if (allPaths.empty()) {
             std::cout << "未找到任何路径！\n";
             return;
         }
-        // 输出所有路径
-        int minLen = 1e9, minIdx = 0;
-        std::cout << "共找到 " << allPaths.size() << " 条路径：\n";
-        for (size_t i = 0; i < allPaths.size(); ++i) {
-            std::cout << "路径 " << (i+1) << " (长度: " << allPaths[i].size() << "): ";
-            for (int rid : allPaths[i]) std::cout << rid << " ";
-            std::cout << std::endl;
-            if ((int)allPaths[i].size() < minLen) { minLen = allPaths[i].size(); minIdx = i; }
+
+        // 2. 按路径长度从小到大排序
+        std::sort(allPaths.begin(), allPaths.end(), [](const auto& a, const auto& b) {
+            return a.size() < b.size();
+        });
+
+        // 3. 只保留最多6条最短的路径
+        if (allPaths.size() > 6) {
+            allPaths.resize(6);
         }
-        std::cout << "最短路径为第 " << (minIdx+1) << " 条，长度: " << minLen << std::endl;
-        std::string filename = "mondrian_multi_paths.html";
-        visualizer.exportMondrianMultiPathsToHTML(mondrian, allPaths, minIdx, filename);
-        std::cout << "已生成多路径HTML文件: " << filename << "，请用浏览器打开体验！\n";
+
+        // 4. 输出并导出
+        int shortestIdx = 0; // 排序后，第一条就是最短的
+        int minLen = allPaths.empty() ? 0 : allPaths[0].size();
+
+        std::cout << "找到 " << allPaths.size() << " 条最短的路径进行展示：\n";
+        for (size_t i = 0; i < allPaths.size(); ++i) {
+            std::cout << "路径 " << (i+1) << " (长度: " << allPaths[i].size() << ")\n";
+        }
+        std::cout << "\n最短路径为第 " << (shortestIdx + 1) << " 条，长度: " << minLen << std::endl;
+        
+        std::string filename = "mondrian_shortest_paths.html";
+        visualizer.exportMondrianMultiPathsToHTML(mondrian, allPaths, shortestIdx, filename);
+        std::cout << "已生成展示最短路径的HTML文件: " << filename << "，请用浏览器打开体验！\n";
     }
 };
 
