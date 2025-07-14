@@ -26,6 +26,6 @@ private:
     int exitId;
 };
 
-void findAllPathsLimited(const MondrianMaze& maze, int start, int end, int maxPaths, std::vector<std::vector<int>>& allPaths);
+void findAllPathsLimited(const MondrianMaze& maze, int start, int end, int maxPaths, int maxLength, std::vector<std::vector<int>>& allPaths);
 
 #endif // MONDRIAN_MAZE_H 

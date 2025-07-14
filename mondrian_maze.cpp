@@ -136,21 +136,28 @@ std::vector<int> MondrianMaze::findPath(int startId, int endId, int minRooms) co
     return {}; // 无解
 }
 
-// 枚举所有路径，最多返回前maxPaths条
-void findAllPathsLimited(const MondrianMaze& maze, int start, int end, int maxPaths, std::vector<std::vector<int>>& allPaths) {
+// 枚举所有路径，最多返回前maxPaths条，且路径长度不超过maxLength
+void findAllPathsLimited(const MondrianMaze& maze, int start, int end, int maxPaths, int maxLength, std::vector<std::vector<int>>& allPaths) {
     std::vector<int> path;
     std::unordered_set<int> visited;
     std::function<void(int)> dfs = [&](int u) {
-        if ((int)allPaths.size() >= maxPaths) return;
+        if ((int)allPaths.size() >= maxPaths || (int)path.size() >= maxLength) {
+            return;
+        }
+
         path.push_back(u);
         visited.insert(u);
+
         if (u == end) {
             allPaths.push_back(path);
         } else {
             for (int nb : maze.getRoom(u).neighbors) {
-                if (!visited.count(nb)) dfs(nb);
+                if (visited.find(nb) == visited.end()) {
+                    dfs(nb);
+                }
             }
         }
+        
         path.pop_back();
         visited.erase(u);
     };

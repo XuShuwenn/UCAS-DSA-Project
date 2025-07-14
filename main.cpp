@@ -433,28 +433,36 @@ private:
 
     void mondrianMazeAdventure(const Visualizer& visualizer) {
         MondrianMaze mondrian;
-        std::vector<std::vector<int>> allPaths;
-        // 1. 寻找大量候选路径（最多200条）
-        findAllPathsLimited(mondrian, mondrian.getEntranceId(), mondrian.getExitId(), 200, allPaths);
-        if (allPaths.empty()) {
-            std::cout << "未找到任何路径！\n";
+        
+        // 1. 快速找到最短路径长度
+        std::vector<int> shortestPath = mondrian.findPath(mondrian.getEntranceId(), mondrian.getExitId(), 1);
+        if (shortestPath.empty()) {
+            std::cout << "无法找到任何从入口到出口的路径！\n";
             return;
         }
+        
+        // 2. 在最短路径长度附近，智能搜索其他短路径
+        std::vector<std::vector<int>> allPaths;
+        int maxLength = shortestPath.size() + 10; // 探索边界：最短路径+10步
+        findAllPathsLimited(mondrian, mondrian.getEntranceId(), mondrian.getExitId(), 200, maxLength, allPaths);
+        
+        if (allPaths.empty()) {
+            allPaths.push_back(shortestPath); // 保底，至少显示最短那条
+        }
 
-        // 2. 按路径长度从小到大排序
+        // 3. 排序并筛选出前6条最短的独特路径
         std::sort(allPaths.begin(), allPaths.end(), [](const auto& a, const auto& b) {
             return a.size() < b.size();
         });
-
-        // 3. 只保留最多6条最短的路径
+        allPaths.erase(std::unique(allPaths.begin(), allPaths.end()), allPaths.end());
         if (allPaths.size() > 6) {
             allPaths.resize(6);
         }
-
+        
         // 4. 输出并导出
-        int shortestIdx = 0; // 排序后，第一条就是最短的
+        int shortestIdx = 0;
         int minLen = allPaths.empty() ? 0 : allPaths[0].size();
-
+        
         std::cout << "找到 " << allPaths.size() << " 条最短的路径进行展示：\n";
         for (size_t i = 0; i < allPaths.size(); ++i) {
             std::cout << "路径 " << (i+1) << " (长度: " << allPaths[i].size() << ")\n";

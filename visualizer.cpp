@@ -739,7 +739,7 @@ void Visualizer::exportMondrianMultiPathsToHTML(const MondrianMaze& maze, const 
     file << "<h3>最短路径为第 " << (shortestIdx+1) << " 条，长度 " << paths[shortestIdx].size() << "</h3>\n";
     for (size_t i = 0; i < paths.size(); ++i) {
         file << "<div class=\"path-block\">\n";
-        file << "<svg width=\"400\" height=\"400\" style=\"background:#fff;box-shadow:0 0 8px #aaa;\">\n";
+        file << "<svg width=\"400\" height=\"400\" viewBox=\"0 0 800 800\" style=\"background:#fff;box-shadow:0 0 8px #aaa;\">\n";
         // 画所有房间
         for (const auto& room : maze.getRooms()) {
             std::string border = "stroke:#222;stroke-width:3;";
