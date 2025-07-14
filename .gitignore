@@ -39,3 +39,16 @@
 
 # debug information files
 *.dwo
+
+# 编译生成的主程序
+maze_solver
+
+# 其他常见的构建产物
+*.o
+*.out
+*.exe
+*.a
+*.so
+*.dll
+*.obj
+
