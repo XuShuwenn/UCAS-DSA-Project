@@ -80,6 +80,7 @@ public:
     void exportToText(const Maze& maze, const std::vector<Point>& path, 
                      const std::string& filename) const;
     void exportMondrianToHTML(const MondrianMaze& maze, const std::vector<int>& path, const std::string& filename) const;
+    void exportMondrianMultiPathsToHTML(const MondrianMaze& maze, const std::vector<std::vector<int>>& paths, int shortestIdx, const std::string& filename) const;
     
     // 统计信息显示
     void printStatistics(const Maze& maze) const;

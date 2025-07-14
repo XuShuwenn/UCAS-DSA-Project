@@ -433,14 +433,25 @@ private:
 
     void mondrianMazeAdventure(const Visualizer& visualizer) {
         MondrianMaze mondrian;
-        auto path = mondrian.findPath(mondrian.getEntranceId(), mondrian.getExitId(), 3);
-        if (path.empty()) {
-            std::cout << "未找到经过3个及以上房间的路径！\n";
+        std::vector<std::vector<int>> allPaths;
+        findAllPathsLimited(mondrian, mondrian.getEntranceId(), mondrian.getExitId(), 6, allPaths);
+        if (allPaths.empty()) {
+            std::cout << "未找到任何路径！\n";
             return;
         }
-        std::string filename = "mondrian_maze.html";
-        visualizer.exportMondrianToHTML(mondrian, path, filename);
-        std::cout << "已生成HTML文件: " << filename << "，请用浏览器打开体验闯入名画！\n";
+        // 输出所有路径
+        int minLen = 1e9, minIdx = 0;
+        std::cout << "共找到 " << allPaths.size() << " 条路径：\n";
+        for (size_t i = 0; i < allPaths.size(); ++i) {
+            std::cout << "路径 " << (i+1) << " (长度: " << allPaths[i].size() << "): ";
+            for (int rid : allPaths[i]) std::cout << rid << " ";
+            std::cout << std::endl;
+            if ((int)allPaths[i].size() < minLen) { minLen = allPaths[i].size(); minIdx = i; }
+        }
+        std::cout << "最短路径为第 " << (minIdx+1) << " 条，长度: " << minLen << std::endl;
+        std::string filename = "mondrian_multi_paths.html";
+        visualizer.exportMondrianMultiPathsToHTML(mondrian, allPaths, minIdx, filename);
+        std::cout << "已生成多路径HTML文件: " << filename << "，请用浏览器打开体验！\n";
     }
 };
 
@@ -452,6 +463,5 @@ int main() {
         std::cerr << "程序异常: " << e.what() << std::endl;
         return 1;
     }
-    
     return 0;
 }

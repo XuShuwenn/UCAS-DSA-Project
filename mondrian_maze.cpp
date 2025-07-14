@@ -2,28 +2,112 @@
 #include <queue>
 #include <unordered_set>
 #include <algorithm>
+#include <cmath>
+#include <map>
+#include <cstdlib>
+#include <ctime>
 
-// 仿照用户提供的蒙德里安画作设计的迷宫布局
+// 颜色池（不含白色）
+static const std::vector<std::string> mondrian_colors = {
+    "#e63946", // 红
+    "#f4d35e", // 黄
+    "#1d3557", // 蓝
+    "#000000", // 黑
+    "#43aa8b", // 绿
+    "#f3722c", // 橙
+    "#9d4edd", // 紫
+    "#f8961e", // 橙黄
+    "#577590", // 蓝灰
+    "#f94144"  // 深红
+};
+
+struct Block {
+    int x, y, w, h;
+    int colorIdx;
+};
+
+// 优先分割最大块，交替分割方向
+void splitBlocksMondrian(std::vector<Block>& blocks, int x, int y, int w, int h, int targetBlocks) {
+    struct QBlock { int x, y, w, h, depth; };
+    std::vector<QBlock> q = { {x, y, w, h, 0} };
+    while ((int)blocks.size() + (int)q.size() < targetBlocks) {
+        // 找到面积最大的块分割
+        auto it = std::max_element(q.begin(), q.end(), [](const QBlock& a, const QBlock& b) {
+            return a.w * a.h < b.w * b.h;
+        });
+        if (it == q.end()) break;
+        QBlock blk = *it;
+        q.erase(it);
+        bool splitVert = (blk.depth % 2 == 0);
+        if (blk.w > blk.h) splitVert = true;
+        if (blk.h > blk.w) splitVert = false;
+        if (splitVert && blk.w >= 120) {
+            int sw = 60 + rand() % (blk.w - 60);
+            q.push_back({blk.x, blk.y, sw, blk.h, blk.depth+1});
+            q.push_back({blk.x+sw, blk.y, blk.w-sw, blk.h, blk.depth+1});
+        } else if (!splitVert && blk.h >= 120) {
+            int sh = 60 + rand() % (blk.h - 60);
+            q.push_back({blk.x, blk.y, blk.w, sh, blk.depth+1});
+            q.push_back({blk.x, blk.y+sh, blk.w, blk.h-sh, blk.depth+1});
+        } else {
+            // 无法再分割，直接作为块
+            blocks.push_back({blk.x, blk.y, blk.w, blk.h, (int)blocks.size() % mondrian_colors.size()});
+        }
+    }
+    // 剩余的都作为块
+    for (const auto& blk : q) {
+        blocks.push_back({blk.x, blk.y, blk.w, blk.h, (int)blocks.size() % mondrian_colors.size()});
+    }
+}
+
 MondrianMaze::MondrianMaze() {
-    // 房间定义: id, x, y, width, height, color, neighbors
-    rooms = {
-        {0, 0, 0, 40, 160, "#000000", {1,2,8}},
-        {1, 40, 0, 320, 40, "#1d3557", {0,2,3,9}},
-        {2, 40, 40, 80, 80, "#f1faee", {0,1,3,5}},
-        {3, 120, 40, 120, 120, "#f4d35e", {1,2,4,6}},
-        {4, 240, 40, 120, 120, "#e63946", {3,7,9}},
-        {5, 40, 120, 80, 80, "#f1faee", {2,6,8,10}},
-        {6, 160, 160, 80, 80, "#e63946", {3,5,7,11}},
-        {7, 240, 160, 120, 40, "#1d3557", {4,6,12}},
-        {8, 0, 160, 40, 120, "#f1faee", {0,5,10}},
-        {9, 360, 0, 40, 160, "#f4d35e", {1,4,13}},
-        {10, 0, 280, 120, 80, "#f1faee", {5,8,11}},
-        {11, 120, 280, 120, 80, "#000000", {6,10,12}},
-        {12, 240, 200, 120, 80, "#1d3557", {7,11,13}},
-        {13, 360, 160, 40, 200, "#f1faee", {9,12}}
-    };
-    entranceId = 0; // 左上黑色块
-    exitId = 13;    // 右下白色块
+    srand(time(0));
+    while (true) {
+        // 1. 生成色块
+        std::vector<Block> blocks;
+        splitBlocksMondrian(blocks, 0, 0, 800, 800, 100); // 目标100块
+        // 2. 转为Room
+        rooms.clear();
+        for (size_t i = 0; i < blocks.size(); ++i) {
+            const auto& b = blocks[i];
+            rooms.push_back({(int)i, b.x, b.y, b.w, b.h, mondrian_colors[b.colorIdx], {}});
+        }
+        // 3. 建立邻接关系
+        // 用map辅助快速查找
+        std::map<std::pair<int,int>, int> pos2id;
+        for (size_t i = 0; i < rooms.size(); ++i) {
+            pos2id[{rooms[i].x, rooms[i].y}] = i;
+        }
+        for (size_t i = 0; i < rooms.size(); ++i) {
+            auto& r = rooms[i];
+            for (size_t j = 0; j < rooms.size(); ++j) {
+                if (i == j) continue;
+                const auto& s = rooms[j];
+                // 上下相邻
+                if (r.x == s.x && r.width == s.width && (r.y + r.height == s.y || s.y + s.height == r.y))
+                    r.neighbors.push_back(s.id);
+                // 左右相邻
+                if (r.y == s.y && r.height == s.height && (r.x + r.width == s.x || s.x + s.width == r.x))
+                    r.neighbors.push_back(s.id);
+            }
+        }
+        // 4. 入口/出口选择为最远的两个房间
+        int maxDist = -1, ent = 0, ext = 0;
+        for (size_t i = 0; i < rooms.size(); ++i) {
+            for (size_t j = 0; j < rooms.size(); ++j) {
+                int dx = (rooms[i].x + rooms[i].width/2) - (rooms[j].x + rooms[j].width/2);
+                int dy = (rooms[i].y + rooms[i].height/2) - (rooms[j].y + rooms[j].height/2);
+                int d = dx*dx + dy*dy;
+                if (d > maxDist) { maxDist = d; ent = i; ext = j; }
+            }
+        }
+        entranceId = ent;
+        exitId = ext;
+        // 5. 检查可解性和路径长度
+        std::vector<int> path = findPath(entranceId, exitId, 1);
+        if (!path.empty() && path.size() >= 3) break;
+        // 否则重新生成
+    }
 }
 
 int MondrianMaze::getRoomCount() const { return rooms.size(); }
@@ -50,4 +134,25 @@ std::vector<int> MondrianMaze::findPath(int startId, int endId, int minRooms) co
         }
     }
     return {}; // 无解
+}
+
+// 枚举所有路径，最多返回前maxPaths条
+void findAllPathsLimited(const MondrianMaze& maze, int start, int end, int maxPaths, std::vector<std::vector<int>>& allPaths) {
+    std::vector<int> path;
+    std::unordered_set<int> visited;
+    std::function<void(int)> dfs = [&](int u) {
+        if ((int)allPaths.size() >= maxPaths) return;
+        path.push_back(u);
+        visited.insert(u);
+        if (u == end) {
+            allPaths.push_back(path);
+        } else {
+            for (int nb : maze.getRoom(u).neighbors) {
+                if (!visited.count(nb)) dfs(nb);
+            }
+        }
+        path.pop_back();
+        visited.erase(u);
+    };
+    dfs(start);
 } 
