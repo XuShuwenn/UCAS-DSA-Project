@@ -72,23 +72,23 @@ MondrianMaze::MondrianMaze() {
             const auto& b = blocks[i];
             rooms.push_back({(int)i, b.x, b.y, b.w, b.h, mondrian_colors[b.colorIdx], {}});
         }
-        // 3. 建立邻接关系
-        // 用map辅助快速查找
-        std::map<std::pair<int,int>, int> pos2id;
+        // 3. 建立邻接关系（修正版）
         for (size_t i = 0; i < rooms.size(); ++i) {
-            pos2id[{rooms[i].x, rooms[i].y}] = i;
-        }
-        for (size_t i = 0; i < rooms.size(); ++i) {
-            auto& r = rooms[i];
-            for (size_t j = 0; j < rooms.size(); ++j) {
-                if (i == j) continue;
-                const auto& s = rooms[j];
-                // 上下相邻
-                if (r.x == s.x && r.width == s.width && (r.y + r.height == s.y || s.y + s.height == r.y))
-                    r.neighbors.push_back(s.id);
-                // 左右相邻
-                if (r.y == s.y && r.height == s.height && (r.x + r.width == s.x || s.x + s.width == r.x))
-                    r.neighbors.push_back(s.id);
+            for (size_t j = i + 1; j < rooms.size(); ++j) {
+                auto& r1 = rooms[i];
+                auto& r2 = rooms[j];
+                // 检查水平相邻 (r1在r2左边或右边)
+                if ((r1.x + r1.width == r2.x || r2.x + r2.width == r1.x) &&
+                    (std::max(r1.y, r2.y) < std::min(r1.y + r1.height, r2.y + r2.height))) {
+                    r1.neighbors.push_back(r2.id);
+                    r2.neighbors.push_back(r1.id);
+                }
+                // 检查垂直相邻 (r1在r2上方或下方)
+                if ((r1.y + r1.height == r2.y || r2.y + r2.height == r1.y) &&
+                    (std::max(r1.x, r2.x) < std::min(r1.x + r1.width, r2.x + r2.width))) {
+                    r1.neighbors.push_back(r2.id);
+                    r2.neighbors.push_back(r1.id);
+                }
             }
         }
         // 4. 入口/出口选择为最远的两个房间
