@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include "CircularMaze.h"
 
 /**
  * 主程序文件
@@ -106,46 +107,42 @@ private:
     }
     
     void createMaze() {
-        std::cout << "\n=== 创建迷宫 ===" << std::endl;
-        std::cout << "1. 随机生成迷宫" << std::endl;
-        std::cout << "2. 使用DFS生成迷宫" << std::endl;
-        std::cout << "3. 预设迷宫示例" << std::endl;
-        std::cout << "请选择 (1-3): ";
-        
+        std::cout << "\n--- 创建迷宫 ---\n";
+        std::cout << "1. 创建矩形迷宫\n";
+        std::cout << "2. 创建圆形迷宫\n";
+        std::cout << "请选择: ";
         int choice;
         std::cin >> choice;
-        
-        int rows, cols;
-        std::cout << "请输入迷宫行数: ";
-        std::cin >> rows;
-        std::cout << "请输入迷宫列数: ";
-        std::cin >> cols;
-        
-        if (rows <= 0 || cols <= 0 || rows > 50 || cols > 50) {
-            std::cout << "迷宫尺寸无效！请输入1-50之间的值。" << std::endl;
-            return;
-        }
-        
-        maze = std::make_unique<Maze>(rows, cols);
-        
-        switch (choice) {
-            case 1: {
+
+        if (choice == 1) {
+            // 矩形迷宫
+            int rows, cols;
+            std::cout << "请输入迷宫行数: ";
+            std::cin >> rows;
+            std::cout << "请输入迷宫列数: ";
+            std::cin >> cols;
+            maze = std::make_unique<Maze>(rows, cols);
+
+            std::cout << "1. 随机墙壁生成\n2. DFS生成 (保证连通)\n请选择生成方式: ";
+            int gen_choice;
+            std::cin >> gen_choice;
+            if (gen_choice == 1) {
                 double wallProb;
-                std::cout << "请输入墙壁概率 (0.0-1.0): ";
+                std::cout << "请输入墙壁移除概率 (0.0-1.0): ";
                 std::cin >> wallProb;
-                if (wallProb < 0.0 || wallProb > 1.0) wallProb = 0.3;
                 maze->generateRandomMaze(wallProb);
-                break;
+            } else {
+                maze->generateWithDFS();
             }
-            case 2:
-                maze->generateMazeWithDFS();
-                break;
-            case 3:
-                createSampleMaze(rows, cols);
-                break;
-            default:
-                maze->generateRandomMaze();
-                break;
+            std::cout << "矩形迷宫已生成!\n";
+
+        } else if (choice == 2) {
+            std::cout << "输入环数: ";
+            int rings;
+            std::cin >> rings;
+            maze = std::make_unique<CircularMaze>(rings);
+            maze->generate();
+            std::cout << "圆形迷宫已生成!\n";
         }
         
         // 设置入口和出口
@@ -171,9 +168,9 @@ private:
             std::cout << "请输入出口坐标 (行 列): ";
             std::cin >> exitx >> exity;
             
-            if (maze->isValidPosition(ex, ey) && maze->isValidPosition(exitx, exity)) {
-                maze->setEntrance(Point(ex, ey));
-                maze->setExit(Point(exitx, exity));
+            if (maze->isValidPosition(Point(ex, ey)) && maze->isValidPosition(Point(exitx, exity))) {
+                maze->setEntrance({ex, ey});
+                maze->setExit({exitx, exity});
             } else {
                 std::cout << "坐标无效，使用默认位置。" << std::endl;
             }
@@ -375,7 +372,12 @@ private:
                 Maze mazeCopy = maze->clone();
                 auto result = pathFinder.findPathBFS(mazeCopy);
                 
-                visualizer.exportToHTML(*maze, result.path, filename + ".html");
+                if (dynamic_cast<const CircularMaze*>(maze.get())) {
+                    auto* circular_maze = dynamic_cast<const CircularMaze*>(maze.get());
+                    visualizer.exportCircularToHTML(*circular_maze, result.path, filename + ".html");
+                } else {
+                    visualizer.exportToHTML(*maze, result.path, filename + ".html");
+                }
                 std::cout << "HTML文件已生成：" << filename << ".html" << std::endl;
                 break;
             }
@@ -414,7 +416,12 @@ private:
         Maze mazeCopy = maze->clone();
         auto result = pathFinder.findPathBFS(mazeCopy);
         if (result.found) {
-            visualizer.exportToHTML(*maze, result.path, "demo_maze.html");
+            if (dynamic_cast<const CircularMaze*>(maze.get())) {
+                auto* circular_maze = dynamic_cast<const CircularMaze*>(maze.get());
+                visualizer.exportCircularToHTML(*circular_maze, result.path, "demo_maze.html");
+            } else {
+                visualizer.exportToHTML(*maze, result.path, "demo_maze.html");
+            }
             std::cout << "\n演示结果已保存到 demo_maze.html" << std::endl;
         }
     }

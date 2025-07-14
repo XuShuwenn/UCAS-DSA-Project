@@ -27,28 +27,27 @@ Maze::Maze(int rows, int cols) : rows(rows), cols(cols), rng(std::random_device{
 }
 
 const MazeCell& Maze::getCell(int x, int y) const {
-    if (!isValidPosition(x, y)) {
-        static MazeCell invalidCell;
-        return invalidCell;
+    if (!isValidPosition(Point(x, y))) {
+        throw std::out_of_range("Get cell: coordinates out of range.");
     }
     return grid[x][y];
 }
 
 void Maze::setCellType(int x, int y, CellType type) {
-    if (isValidPosition(x, y)) {
+    if (isValidPosition(Point(x, y))) {
         grid[x][y].type = type;
     }
 }
 
 bool Maze::hasWall(int x, int y, WallDirection dir) const {
-    if (!isValidPosition(x, y)) {
+    if (!isValidPosition(Point(x, y))) {
         return true;  // 边界外视为有墙
     }
     return grid[x][y].hasWall(dir);
 }
 
 void Maze::setWall(int x, int y, WallDirection dir, bool hasWall) {
-    if (!isValidPosition(x, y)) return;
+    if (!isValidPosition(Point(x, y))) return;
     
     grid[x][y].setWall(dir, hasWall);
     
@@ -180,7 +179,7 @@ void Maze::generateRandomMaze(double wallRemovalProbability) {
     }
 }
 
-void Maze::generateMazeWithDFS() {
+void Maze::generateWithDFS() {
     // 重新初始化所有格子为有四面墙
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
@@ -236,12 +235,21 @@ void Maze::generateMazeWithDFS() {
     setCellType(exit, CellType::EXIT);
 }
 
-void Maze::generatePerfectMaze() {
-    generateMazeWithDFS();  // 完美迷宫就是DFS生成的迷宫
+void Maze::generate() {
+    // 默认生成方式调用DFS生成
+    this->generateWithDFS();
 }
 
-bool Maze::isValidPosition(int x, int y) const {
-    return x >= 0 && x < rows && y >= 0 && y < cols;
+void Maze::generatePerfectMaze() {
+    // 完美迷宫就是DFS生成的迷宫
+    generateWithDFS();
+}
+
+bool Maze::isValidPosition(const Point& p) const {
+    if (p.x < 0 || p.x >= rows || p.y < 0 || p.y >= cols) {
+        return false;
+    }
+    return true;
 }
 
 bool Maze::canMoveTo(const Point& from, const Point& to) const {

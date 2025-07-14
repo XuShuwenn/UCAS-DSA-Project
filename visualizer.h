@@ -8,6 +8,8 @@
 #include <chrono>
 #include <thread>
 
+class CircularMaze; // 前向声明
+
 /**
  * 可视化器类 - 用于显示线段墙壁迷宫和路径
  * 功能：
@@ -72,6 +74,8 @@ public:
     // 导出功能
     void exportToHTML(const Maze& maze, const std::vector<Point>& path, 
                      const std::string& filename) const;
+    void exportCircularToHTML(const CircularMaze& maze, const std::vector<Point>& path,
+                              const std::string& filename) const; // 新增函数
     void exportToText(const Maze& maze, const std::vector<Point>& path, 
                      const std::string& filename) const;
     
@@ -90,7 +94,7 @@ private:
     // 迷宫显示相关
     void displayMazeWithLineWalls(const Maze& maze) const;
     std::string getCellSymbol(const MazeCell& cell) const;
-    char getConnector(bool hasLeft, bool hasRight, bool hasTop, bool hasBottom) const;
+    std::string getConnector(bool hasLeft, bool hasRight, bool hasTop, bool hasBottom) const; // Changed return type to std::string
     
     // HTML生成
     std::string generateHTMLHeader() const;

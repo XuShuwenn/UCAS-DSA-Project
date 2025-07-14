@@ -8,6 +8,9 @@
 #include <thread>
 #include <chrono>
 #include <cstring>
+#include "CircularMaze.h"
+#include <fstream>
+#include <cmath>
 
 /**
  * 可视化器的实现 - 支持线段墙壁显示
@@ -135,7 +138,7 @@ void Visualizer::displayMazeWithLineWalls(const Maze& maze) const {
                     bool hasCurrentRight = maze.hasWall(i, j, WallDirection::RIGHT);
                     bool hasNextRight = maze.hasWall(i+1, j, WallDirection::RIGHT);
                     
-                    char connector = getConnector(hasCurrentBottom, hasRightBottom, 
+                    std::string connector = getConnector(hasCurrentBottom, hasRightBottom, 
                                                 hasCurrentRight, hasNextRight);
                     std::cout << connector;
                 }
@@ -176,30 +179,29 @@ void Visualizer::displayMazeWithLineWalls(const Maze& maze) const {
     std::cout << "┘\n\n";
 }
 
-char Visualizer::getConnector(bool hasLeft, bool hasRight, bool hasTop, bool hasBottom) const {
-    int connections = (hasLeft ? 1 : 0) + (hasRight ? 1 : 0) + (hasTop ? 1 : 0) + (hasBottom ? 1 : 0);
+std::string Visualizer::getConnector(bool hasLeft, bool hasRight, bool hasTop, bool hasBottom) const {
+    int connections = hasLeft + hasRight + hasTop + hasBottom;
     
-    if (connections == 4) return '┼';
+    if (connections == 4) return "┼";
     if (connections == 3) {
-        if (!hasLeft) return '├';
-        if (!hasRight) return '┤';
-        if (!hasTop) return '┬';
-        if (!hasBottom) return '┴';
+        if (!hasLeft) return "├";
+        if (!hasRight) return "┤";
+        if (!hasTop) return "┬";
+        if (!hasBottom) return "┴";
     }
     if (connections == 2) {
-        if (hasLeft && hasRight) return '─';
-        if (hasTop && hasBottom) return '│';
-        if (hasLeft && hasTop) return '┘';
-        if (hasLeft && hasBottom) return '┐';
-        if (hasRight && hasTop) return '└';
-        if (hasRight && hasBottom) return '┌';
+        if (hasLeft && hasRight) return "─";
+        if (hasTop && hasBottom) return "│";
+        if (hasLeft && hasTop) return "┘";
+        if (hasLeft && hasBottom) return "┐";
+        if (hasRight && hasTop) return "└";
+        if (hasRight && hasBottom) return "┌";
     }
     if (connections == 1) {
-        if (hasLeft || hasRight) return '─';
-        if (hasTop || hasBottom) return '│';
+        if (hasLeft || hasRight) return "─";
+        if (hasTop || hasBottom) return "│";
     }
-    
-    return ' ';
+    return " "; // Default case
 }
 
 std::string Visualizer::getCellSymbol(const MazeCell& cell) const {
@@ -479,9 +481,9 @@ void Visualizer::printStatistics(const Maze& maze) const {
 
 void Visualizer::clearScreen() const {
     #ifdef _WIN32
-        system("cls");
+        (void)system("cls");
     #else
-        system("clear");
+        (void)system("clear");
     #endif
 }
 
@@ -580,15 +582,15 @@ void Visualizer::printWelcome() {
     std::cout << "████████████████████████████████████████████████\n";
     std::cout << "█                                              █\n";
     std::cout << "█           🏃 C++ 迷宫寻路系统 🏃             █\n";
-    std::cout << "█               (线段墙壁版本)                 █\n";
+    std::cout << "█               (线段墙壁版本)                  █\n";
     std::cout << "█                                              █\n";
-    std::cout << "█  功能特性：                                  █\n";
-    std::cout << "█  • 线段表示迷宫墙壁                         █\n";
-    std::cout << "█  • 随机迷宫生成                             █\n";
-    std::cout << "█  • 多种路径寻找算法 (DFS/BFS/A*)            █\n";
-    std::cout << "█  • 算法性能比较                             █\n";
-    std::cout << "█  • 精美可视化展示                           █\n";
-    std::cout << "█  • HTML导出功能                             █\n";
+    std::cout << "█  功能特性：                                   █\n";
+    std::cout << "█  • 线段表示迷宫墙壁                           █\n";
+    std::cout << "█  • 随机迷宫生成                               █\n";
+    std::cout << "█  • 多种路径寻找算法 (DFS/BFS/A*)              █\n";
+    std::cout << "█  • 算法性能比较                               █\n";
+    std::cout << "█  • 精美可视化展示                             █\n";
+    std::cout << "█  • HTML导出功能                               █\n";
     std::cout << "█                                              █\n";
     std::cout << "████████████████████████████████████████████████\n";
     std::cout << std::endl;
@@ -608,4 +610,76 @@ void Visualizer::printHelp() {
     std::cout << "┌─┐│  - 墙壁线段    S - 起点    E - 终点" << std::endl;
     std::cout << "     - 通路        · - 搜索过的路径" << std::endl;
     std::cout << std::string(50, '=') << std::endl;
+}
+
+// Helper to convert polar to cartesian coordinates
+Point polarToCartesian(double radius, double angle_rad) {
+    return {(int)(radius * cos(angle_rad)), (int)(radius * sin(angle_rad))};
+}
+
+void Visualizer::exportCircularToHTML(const CircularMaze& maze, const std::vector<Point>& path,
+                                      const std::string& filename) const {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "无法创建HTML文件: " << filename << std::endl;
+        return;
+    }
+
+    file << "<!DOCTYPE html><html><head><title>Circular Maze</title><style>body{text-align:center;}</style></head><body>";
+    file << "<h1>Circular Maze Visualization</h1>";
+    file << "<svg width=\"800\" height=\"800\" viewBox=\"-450 -450 900 900\" xmlns=\"http://www.w3.org/2000/svg\" style=\"background-color:#f0f0f0;\">";
+    
+    int rings = maze.getRings();
+    double ring_radius_step = 40.0;
+    
+    // 1. Draw Walls
+    for (int r = 0; r < rings; ++r) {
+        int cells = maze.getCellsInRing(r);
+        double angle_rad_step = 2 * M_PI / cells;
+        double r_inner = (r + 1) * ring_radius_step;
+        double r_outer = (r + 2) * ring_radius_step;
+
+        for (int i = 0; i < cells; ++i) {
+            double angle_start = i * angle_rad_step;
+            
+            // Draw radial walls (vertical_walls)
+            if (maze.vertical_walls[r][i]) {
+                Point p1 = polarToCartesian(r_inner, angle_start);
+                Point p2 = polarToCartesian(r_outer, angle_start);
+                file << "<line x1=\"" << p1.x << "\" y1=\"" << p1.y << "\" x2=\"" << p2.x << "\" y2=\"" << p2.y << "\" stroke=\"black\" stroke-width=\"2\" />\n";
+            }
+            // Draw concentric walls (horizontal_walls)
+            if (r < rings -1 && maze.horizontal_walls[r][i]) {
+                 Point p_start = polarToCartesian(r_outer, angle_start);
+                 Point p_end = polarToCartesian(r_outer, angle_start + angle_rad_step);
+                 file << "<path d=\"M " << p_start.x << " " << p_start.y << " A " << r_outer << " " << r_outer << " 0 0 1 " << p_end.x << " " << p_end.y << "\" fill=\"none\" stroke=\"black\" stroke-width=\"2\" />\n";
+            }
+        }
+    }
+    // Draw the outermost wall
+    double r_outermost = (rings + 1) * ring_radius_step;
+    file << "<circle cx=\"0\" cy=\"0\" r=\"" << r_outermost << "\" fill=\"none\" stroke=\"black\" stroke-width=\"2\" />\n";
+    
+    // 2. Draw Path
+    if (!path.empty()) {
+        std::stringstream path_data;
+        for (size_t i = 0; i < path.size(); ++i) {
+            int r = path[i].x;
+            int c = path[i].y;
+            int cells = maze.getCellsInRing(r);
+            double angle_rad_step = 2 * M_PI / cells;
+            double radius = (r + 1.5) * ring_radius_step;
+            double angle = (c + 0.5) * angle_rad_step;
+            Point p = polarToCartesian(radius, angle);
+            
+            if (i == 0) path_data << "M";
+            else path_data << "L";
+            path_data << " " << p.x << " " << p.y << " ";
+        }
+        file << "<path d=\"" << path_data.str() << "\" fill=\"none\" stroke=\"#FF6347\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" />\n";
+    }
+
+    file << "</svg></body></html>";
+    file.close();
+    std::cout << "圆形迷宫已导出到HTML文件: " << filename << std::endl;
 }

@@ -121,16 +121,16 @@ public:
     void setExit(const Point& p);
     
     // 迷宫生成
-    void generateRandomMaze(double wallRemovalProbability = 0.6);
-    void generateMazeWithDFS();  // 使用深度优先搜索生成迷宫
-    void generatePerfectMaze();  // 生成完美迷宫（每两点间只有唯一路径）
+    void generateRandomMaze(double wallRemovalProbability = 0.6); // 恢复此函数
+    void generateWithDFS();
+    void generatePerfectMaze();
+    virtual void generate(); // 新增的虚函数，用于多态生成
     void loadFromWallArray(const std::vector<std::vector<std::vector<bool>>>& wallData);
     
     // 实用函数
-    bool isValidPosition(int x, int y) const;
-    bool isValidPosition(const Point& p) const { return isValidPosition(p.x, p.y); }
+    virtual bool isValidPosition(const Point& p) const; // 改为虚函数
     bool canMoveTo(const Point& from, const Point& to) const;  // 检查两个相邻格子间是否可通行
-    std::vector<Point> getAccessibleNeighbors(const Point& p) const;  // 获取可到达的邻居
+    virtual std::vector<Point> getAccessibleNeighbors(const Point& p) const; // 改为虚函数
     std::vector<Point> getAllNeighbors(const Point& p) const;         // 获取所有邻居（不考虑墙壁）
     
     // 重置迷宫状态（清除访问标记）
