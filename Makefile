@@ -5,7 +5,7 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -g
 
 # 源文件和目标文件
-SOURCES = main.cpp maze.cpp pathfinder.cpp visualizer.cpp CircularMaze.cpp
+SOURCES = main.cpp maze.cpp pathfinder.cpp visualizer.cpp CircularMaze.cpp mondrian_maze.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
 TARGET = maze_solver
 
@@ -101,8 +101,8 @@ help:
 .PHONY: all clean rebuild run debug release install uninstall test docs memcheck format analyze package help
 
 # 依赖关系
-main.o: main.cpp maze.h pathfinder.h visualizer.h CircularMaze.h
+main.o: main.cpp maze.h pathfinder.h visualizer.h CircularMaze.h mondrian_maze.h
 maze.o: maze.cpp maze.h
 pathfinder.o: pathfinder.cpp pathfinder.h maze.h
-visualizer.o: visualizer.cpp visualizer.h maze.h pathfinder.h CircularMaze.h
+visualizer.o: visualizer.cpp visualizer.h maze.h pathfinder.h CircularMaze.h mondrian_maze.h
 CircularMaze.o: CircularMaze.cpp CircularMaze.h maze.h

@@ -5,24 +5,20 @@
 #include <algorithm>
 #include <vector>
 
-CircularMaze::CircularMaze(int rings) : Maze(rings, 0), rings(rings) {
-    cells_in_ring.reserve(rings);
-    for (int i = 0; i < rings; ++i) {
-        // Let's use a scheme where each ring has a multiple of the previous one for easy mapping.
-        // E.g., 6, 12, 24, ...
-        cells_in_ring.push_back(6 * std::pow(2, i));
+CircularMaze::CircularMaze(int rings) : Maze(std::max(3, rings), 0), rings(std::max(3, rings)) {
+    cells_in_ring.reserve(this->rings);
+    for (int i = 0; i < this->rings; ++i) {
+        int n = std::max(6, 6 * (1 << i)); // 每一环至少6个格子
+        cells_in_ring.push_back(n);
     }
-
-    // Walls: 0 for clockwise, 1 for outward
-    horizontal_walls.resize(rings);
-    vertical_walls.resize(rings);
-    for (int i = 0; i < rings; ++i) {
-        horizontal_walls[i].assign(cells_in_ring[i], true); // Concentric walls
-        vertical_walls[i].assign(cells_in_ring[i], true);   // Radial walls
+    horizontal_walls.resize(this->rings);
+    vertical_walls.resize(this->rings);
+    for (int i = 0; i < this->rings; ++i) {
+        horizontal_walls[i].assign(cells_in_ring[i], true);
+        vertical_walls[i].assign(cells_in_ring[i], true);
     }
-
     setEntrance({0, 0});
-    setExit({rings - 1, 0});
+    setExit({this->rings - 1, 0});
 }
 
 void CircularMaze::generate() {
@@ -31,18 +27,14 @@ void CircularMaze::generate() {
     for(int i = 0; i < rings; ++i) {
         visited[i].assign(cells_in_ring[i], false);
     }
-
     std::mt19937 rng(std::random_device{}());
     Point start = {0, 0};
     s.push(start);
     visited[start.x][start.y] = true;
-
     while(!s.empty()){
         Point current = s.top();
-        
         std::vector<Point> neighbors = getAllNeighbors(current);
         std::shuffle(neighbors.begin(), neighbors.end(), rng);
-        
         Point next = {-1, -1};
         for(const auto& n : neighbors) {
             if(isValidPosition(n) && !visited[n.x][n.y]) {
@@ -50,7 +42,6 @@ void CircularMaze::generate() {
                 break;
             }
         }
-
         if(next.x != -1){
             removeWallBetween(current, next);
             visited[next.x][next.y] = true;
@@ -64,36 +55,36 @@ void CircularMaze::generate() {
 std::vector<Point> CircularMaze::getAccessibleNeighbors(const Point& p) const {
     std::vector<Point> neighbors;
     int r = p.x;
+    if (r < 0 || r >= rings) return neighbors;
     int i = p.y;
     int num_cells = cells_in_ring[r];
-
+    if (i < 0 || i >= num_cells) return neighbors;
     // Clockwise
-    if (!vertical_walls[r][i]) {
+    if (num_cells > 0 && !vertical_walls[r][i]) {
         neighbors.push_back({r, (i + 1) % num_cells});
     }
     // Counter-clockwise
-    if (!vertical_walls[r][(i - 1 + num_cells) % num_cells]) {
+    if (num_cells > 0 && !vertical_walls[r][(i - 1 + num_cells) % num_cells]) {
         neighbors.push_back({r, (i - 1 + num_cells) % num_cells});
     }
     // Outward
-    if (r + 1 < rings && !horizontal_walls[r][i]) {
+    if (r + 1 < rings && num_cells > 0 && !horizontal_walls[r][i]) {
         int outer_cells = cells_in_ring[r+1];
         float ratio = (float)outer_cells / num_cells;
-        neighbors.push_back({r + 1, (int)(i * ratio)});
-        if (ratio > 1.5) { // Connect to two cells in the outer ring if ratio is large enough
-             neighbors.push_back({r + 1, (int)(i * ratio) + 1});
+        neighbors.push_back({r + 1, (int)(i * ratio) % outer_cells});
+        if (ratio > 1.5) {
+             neighbors.push_back({r + 1, ((int)(i * ratio) + 1) % outer_cells});
         }
     }
     // Inward
     if (r > 0) {
         int inner_cells = cells_in_ring[r-1];
         float ratio = (float)num_cells / inner_cells;
-        Point inner_neighbor = {r - 1, (int)(i / ratio)};
-        if (!horizontal_walls[inner_neighbor.x][inner_neighbor.y]) {
-            neighbors.push_back(inner_neighbor);
+        int inner_idx = (int)(i / ratio);
+        if (inner_idx >= 0 && inner_idx < inner_cells && !horizontal_walls[r-1][inner_idx]) {
+            neighbors.push_back({r - 1, inner_idx});
         }
     }
-
     return neighbors;
 }
 
@@ -115,28 +106,29 @@ int CircularMaze::getCellsInRing(int ring) const {
 std::vector<Point> CircularMaze::getAllNeighbors(const Point& p) const {
     std::vector<Point> neighbors;
     int r = p.x;
+    if (r < 0 || r >= rings) return neighbors;
     int i = p.y;
     int num_cells = cells_in_ring[r];
-
+    if (i < 0 || i >= num_cells) return neighbors;
     // Clockwise and Counter-clockwise
     neighbors.push_back({r, (i + 1) % num_cells});
     neighbors.push_back({r, (i - 1 + num_cells) % num_cells});
-    
     // Outward neighbors
     if (r + 1 < rings) {
         int outer_cells = cells_in_ring[r+1];
         float ratio = (float)outer_cells / num_cells;
-        neighbors.push_back({r + 1, (int)(i * ratio)});
-         if (ratio > 1.5) {
-             neighbors.push_back({r + 1, (int)(i * ratio) + 1});
+        neighbors.push_back({r + 1, (int)(i * ratio) % outer_cells});
+        if (ratio > 1.5) {
+            neighbors.push_back({r + 1, ((int)(i * ratio) + 1) % outer_cells});
         }
     }
-
     // Inward neighbor
     if (r > 0) {
         int inner_cells = cells_in_ring[r-1];
         float ratio = (float)num_cells / inner_cells;
-        neighbors.push_back({r - 1, (int)(i / ratio)});
+        int inner_idx = (int)(i / ratio);
+        if (inner_idx >= 0 && inner_idx < inner_cells)
+            neighbors.push_back({r - 1, inner_idx});
     }
     return neighbors;
 }
@@ -144,9 +136,11 @@ std::vector<Point> CircularMaze::getAllNeighbors(const Point& p) const {
 void CircularMaze::removeWallBetween(const Point& a, const Point& b) {
     if (a.x == b.x) { // Same ring, must be a vertical (radial) wall
         int i = std::min(a.y, b.y);
-        this->vertical_walls[a.x][i] = false;
+        if (a.x >= 0 && a.x < rings && i >= 0 && i < (int)vertical_walls[a.x].size())
+            this->vertical_walls[a.x][i] = false;
     } else { // Different rings, must be a horizontal (concentric) wall
         const Point& inner = (a.x < b.x) ? a : b;
-        this->horizontal_walls[inner.x][inner.y] = false;
+        if (inner.x >= 0 && inner.x < rings && inner.y >= 0 && inner.y < (int)horizontal_walls[inner.x].size())
+            this->horizontal_walls[inner.x][inner.y] = false;
     }
 } 

@@ -7,6 +7,7 @@
 #include <string>
 #include <chrono>
 #include <thread>
+#include "mondrian_maze.h"
 
 class CircularMaze; // 前向声明
 
@@ -78,6 +79,7 @@ public:
                               const std::string& filename) const; // 新增函数
     void exportToText(const Maze& maze, const std::vector<Point>& path, 
                      const std::string& filename) const;
+    void exportMondrianToHTML(const MondrianMaze& maze, const std::vector<int>& path, const std::string& filename) const;
     
     // 统计信息显示
     void printStatistics(const Maze& maze) const;

@@ -11,6 +11,7 @@
 #include "CircularMaze.h"
 #include <fstream>
 #include <cmath>
+#include "mondrian_maze.h"
 
 /**
  * 可视化器的实现 - 支持线段墙壁显示
@@ -582,15 +583,14 @@ void Visualizer::printWelcome() {
     std::cout << "████████████████████████████████████████████████\n";
     std::cout << "█                                              █\n";
     std::cout << "█           🏃 C++ 迷宫寻路系统 🏃             █\n";
-    std::cout << "█               (线段墙壁版本)                  █\n";
     std::cout << "█                                              █\n";
-    std::cout << "█  功能特性：                                   █\n";
-    std::cout << "█  • 线段表示迷宫墙壁                           █\n";
-    std::cout << "█  • 随机迷宫生成                               █\n";
-    std::cout << "█  • 多种路径寻找算法 (DFS/BFS/A*)              █\n";
-    std::cout << "█  • 算法性能比较                               █\n";
-    std::cout << "█  • 精美可视化展示                             █\n";
-    std::cout << "█  • HTML导出功能                               █\n";
+    std::cout << "█  功能特性：                                  █\n";
+    std::cout << "█  • 线段表示迷宫墙壁                          █\n";
+    std::cout << "█  • 随机迷宫生成                              █\n";
+    std::cout << "█  • 多种路径寻找算法 (DFS/BFS/A*)             █\n";
+    std::cout << "█  • 算法性能比较                              █\n";
+    std::cout << "█  • 精美可视化展示                            █\n";
+    std::cout << "█  • HTML导出功能                              █\n";
     std::cout << "█                                              █\n";
     std::cout << "████████████████████████████████████████████████\n";
     std::cout << std::endl;
@@ -682,4 +682,40 @@ void Visualizer::exportCircularToHTML(const CircularMaze& maze, const std::vecto
     file << "</svg></body></html>";
     file.close();
     std::cout << "圆形迷宫已导出到HTML文件: " << filename << std::endl;
+}
+
+void Visualizer::exportMondrianToHTML(const MondrianMaze& maze, const std::vector<int>& path, const std::string& filename) const {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "无法创建HTML文件: " << filename << std::endl;
+        return;
+    }
+    file << "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Mondrian Maze</title></head><body>\n";
+    file << "<h2>闯入蒙德里安名画 - Mondrian Maze</h2>\n";
+    file << "<svg width=\"400\" height=\"400\" style=\"background:#fff;box-shadow:0 0 8px #aaa;\">\n";
+    // 画所有房间
+    for (const auto& room : maze.getRooms()) {
+        bool inPath = std::find(path.begin(), path.end(), room.id) != path.end();
+        std::string border = inPath ? "stroke:#e63946;stroke-width:6;" : "stroke:#222;stroke-width:3;";
+        file << "<rect x=\"" << room.x << "\" y=\"" << room.y << "\" width=\"" << room.width << "\" height=\"" << room.height << "\" fill=\"" << room.color << "\" style=\"" << border << "\"/>\n";
+    }
+    // 路径高亮连线
+    if (path.size() >= 2) {
+        file << "<polyline points=\"";
+        for (int rid : path) {
+            const auto& r = maze.getRoom(rid);
+            file << (r.x + r.width/2) << "," << (r.y + r.height/2) << " ";
+        }
+        file << "\" fill=\"none\" stroke=\"#e63946\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n";
+    }
+    // 标记入口和出口
+    const auto& ent = maze.getRoom(maze.getEntranceId());
+    const auto& ext = maze.getRoom(maze.getExitId());
+    file << "<circle cx=\"" << (ent.x + ent.width/2) << "\" cy=\"" << (ent.y + ent.height/2) << "\" r=\"12\" fill=\"#43aa8b\"/>\n";
+    file << "<circle cx=\"" << (ext.x + ext.width/2) << "\" cy=\"" << (ext.y + ext.height/2) << "\" r=\"12\" fill=\"#f3722c\"/>\n";
+    file << "</svg>\n";
+    file << "<p>绿色圆点为入口，橙色圆点为出口，红色粗线为路径。</p>\n";
+    file << "</body></html>\n";
+    file.close();
+    std::cout << "蒙德里安迷宫已导出到HTML文件: " << filename << std::endl;
 }

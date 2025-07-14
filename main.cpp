@@ -6,6 +6,7 @@
 #include <vector>
 #include <memory>
 #include "CircularMaze.h"
+#include "mondrian_maze.h"
 
 /**
  * 主程序文件
@@ -72,6 +73,9 @@ public:
                 case 7:
                     Visualizer::printHelp();
                     break;
+                case 8:
+                    mondrianMazeAdventure(visualizer);
+                    break;
                 case 0:
                     std::cout << "感谢使用迷宫寻路系统！" << std::endl;
                     break;
@@ -101,9 +105,10 @@ private:
         std::cout << "5. 导出结果" << std::endl;
         std::cout << "6. 演示模式" << std::endl;
         std::cout << "7. 帮助信息" << std::endl;
+        std::cout << "8. 闯入蒙德里安名画" << std::endl;
         std::cout << "0. 退出程序" << std::endl;
         std::cout << std::string(40, '=') << std::endl;
-        std::cout << "请选择操作 (0-7): ";
+        std::cout << "请选择操作 (0-8): ";
     }
     
     void createMaze() {
@@ -424,6 +429,18 @@ private:
             }
             std::cout << "\n演示结果已保存到 demo_maze.html" << std::endl;
         }
+    }
+
+    void mondrianMazeAdventure(const Visualizer& visualizer) {
+        MondrianMaze mondrian;
+        auto path = mondrian.findPath(mondrian.getEntranceId(), mondrian.getExitId(), 3);
+        if (path.empty()) {
+            std::cout << "未找到经过3个及以上房间的路径！\n";
+            return;
+        }
+        std::string filename = "mondrian_maze.html";
+        visualizer.exportMondrianToHTML(mondrian, path, filename);
+        std::cout << "已生成HTML文件: " << filename << "，请用浏览器打开体验闯入名画！\n";
     }
 };
 
