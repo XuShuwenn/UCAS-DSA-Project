@@ -732,26 +732,27 @@ void Visualizer::exportMondrianMultiPathsToHTML(const MondrianMaze& maze, const 
         return;
     }
     file << "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Mondrian Maze 多路径</title>"
-            "<style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;}svg{display:block;margin:24px auto;}h3{margin-bottom:0;}</style>"
+            "<style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;}"
+            ".path-block{margin:32px 0;text-align:center;}svg{display:block;margin:0 auto;}h3{margin-bottom:0;}</style>"
             "</head><body>\n";
     file << "<h2>闯入蒙德里安名画 - 多路径解法</h2>\n";
+    file << "<h3>最短路径为第 " << (shortestIdx+1) << " 条，长度 " << paths[shortestIdx].size() << "</h3>\n";
     for (size_t i = 0; i < paths.size(); ++i) {
-        file << "<h3>路径 " << (i+1) << (i == (size_t)shortestIdx ? "（最短路径）" : "") << "，长度 " << paths[i].size() << "</h3>\n";
+        file << "<div class=\"path-block\">\n";
         file << "<svg width=\"400\" height=\"400\" style=\"background:#fff;box-shadow:0 0 8px #aaa;\">\n";
         // 画所有房间
         for (const auto& room : maze.getRooms()) {
             std::string border = "stroke:#222;stroke-width:3;";
             file << "<rect x=\"" << room.x << "\" y=\"" << room.y << "\" width=\"" << room.width << "\" height=\"" << room.height << "\" fill=\"" << room.color << "\" style=\"" << border << "\"/>\n";
         }
-        // 路径高亮连线
+        // 路径高亮连线（绿色）
         if (paths[i].size() >= 2) {
             file << "<polyline points=\"";
             for (int rid : paths[i]) {
                 const auto& r = maze.getRoom(rid);
                 file << (r.x + r.width/2) << "," << (r.y + r.height/2) << " ";
             }
-            std::string color = (i == (size_t)shortestIdx) ? "#43aa8b" : "#888";
-            file << "\" fill=\"none\" stroke=\"" << color << "\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n";
+            file << "\" fill=\"none\" stroke=\"#43aa8b\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n";
         }
         // 标记入口和出口
         const auto& ent = maze.getRoom(maze.getEntranceId());
@@ -759,8 +760,10 @@ void Visualizer::exportMondrianMultiPathsToHTML(const MondrianMaze& maze, const 
         file << "<circle cx=\"" << (ent.x + ent.width/2) << "\" cy=\"" << (ent.y + ent.height/2) << "\" r=\"12\" fill=\"#43aa8b\"/>\n";
         file << "<circle cx=\"" << (ext.x + ext.width/2) << "\" cy=\"" << (ext.y + ext.height/2) << "\" r=\"12\" fill=\"#f3722c\"/>\n";
         file << "</svg>\n";
+        file << "<div>路径 " << (i+1) << (i == (size_t)shortestIdx ? "（最短路径）" : "") << "，长度 " << paths[i].size() << "</div>\n";
+        file << "</div>\n";
     }
-    file << "<p>绿色路径为最短路径，灰色为其他路径。绿色/橙色圆点为入口/出口。</p>\n";
+    file << "<p>每张图绿色路径为该解法，绿色/橙色圆点为入口/出口。</p>\n";
     file << "</body></html>\n";
     file.close();
     std::cout << "多路径 Mondrian 迷宫已导出到HTML文件: " << filename << std::endl;
