@@ -169,85 +169,68 @@
     \item \textbf{可视化实现}：生成清晰美观的迷宫图形
 \end{enumerate}
 
+\newpage
 \section{数据结构设计与实现}
 
-\subsection{核心数据结构}
+本项目的矩形迷宫采用面向对象的设计思想，核心在于对迷宫格点、墙壁、路径等元素的高效抽象与操作。以下为主要数据结构及部分关键实现片段。
 
-\subsubsection{坐标点结构}
-\begin{lstlisting}[language=C++]
-struct Point {
-    int x, y;
-    Point(int x = 0, int y = 0) : x(x), y(y) {}
-    bool operator==(const Point& other) const;
-    bool operator!=(const Point& other) const;
-    bool operator<(const Point& other) const;
-};
-\end{lstlisting}
+\subsection{Maze类与MazeCell结构}
 
-\subsubsection{墙壁方向枚举}
-\begin{lstlisting}[language=C++]
-enum class WallDirection {
-    TOP = 0,     // 上边墙
-    RIGHT = 1,   // 右边墙
-    BOTTOM = 2,  // 下边墙
-    LEFT = 3     // 左边墙
-};
-\end{lstlisting}
+\begin{itemize}
+    \item \textbf{Maze类}：负责存储迷宫整体结构、尺寸、入口与出口等信息。内部维护一个二维vector表示所有格点。
+    \item \textbf{MazeCell结构}：每个格点由MazeCell结构体表示，包含墙壁信息、格点类型、访问标记等。
+\end{itemize}
 
-\subsubsection{迷宫格子结构}
-\begin{lstlisting}[language=C++]
+\begin{lstlisting}[language=C++, caption={MazeCell结构体定义}]
+enum class CellType { NORMAL, ENTRANCE, EXIT };
+
 struct MazeCell {
-    bool walls[4];  // 四个方向的墙：上、右、下、左
-    CellType type;  // 格子类型（路径、入口、出口、已访问）
-    
-    MazeCell() : type(CellType::PATH) {
-        for (int i = 0; i < 4; i++) walls[i] = true;
-    }
-    
-    bool hasWall(WallDirection dir) const;
-    void setWall(WallDirection dir, bool hasWall);
-    void removeWall(WallDirection dir);
+    bool wall[4]; // 上右下左
+    CellType type;
+    bool visited;
+    MazeCell() : wall{true, true, true, true}, type(CellType::NORMAL), visited(false) {}
 };
 \end{lstlisting}
 
-\subsection{迷宫类设计}
+\subsection{墙壁与通道的表示}
 
-迷宫类采用二维向量存储格子矩阵，并提供丰富的操作接口：
+每个MazeCell通过四个方向的布尔变量表示其上下左右是否有墙壁。迷宫生成与路径搜索过程中，通过修改这些变量实现格点之间的连通或阻断。
 
-\begin{lstlisting}[language=C++]
-class Maze {
-private:
-    int rows, cols;
-    std::vector<std::vector<MazeCell>> grid;
-    Point entrance, exit;
-    std::mt19937 rng;
-
-public:
-    // 构造与访问
-    Maze(int rows, int cols);
-    int getRows() const { return rows; }
-    int getCols() const { return cols; }
-    
-    // 格子操作
-    const MazeCell& getCell(const Point& p) const;
-    void setCellType(const Point& p, CellType type);
-    
-    // 墙壁操作
-    bool hasWall(const Point& p, WallDirection dir) const;
-    void removeWall(const Point& p, WallDirection dir);
-    void removeWallBetween(const Point& p1, const Point& p2);
-    
-    // 迷宫生成
-    void generateRandomMaze(double wallRemovalProbability = 0.6);
-    void generateMazeWithDFS();
-    void generatePerfectMaze();
-    
-    // 实用函数
-    bool isValidPosition(const Point& p) const;
-    bool canMoveTo(const Point& from, const Point& to) const;
-    std::vector<Point> getAccessibleNeighbors(const Point& p) const;
-};
+\begin{lstlisting}[language=C++, caption={判断相邻格点是否连通}]
+bool Maze::isConnected(int x1, int y1, int x2, int y2) const {
+    // 假设(x1, y1)和(x2, y2)相邻
+    if (x1 == x2 && y1 + 1 == y2)
+        return !cells[x1][y1].wall[1]; // 右
+    if (x1 == x2 && y1 - 1 == y2)
+        return !cells[x1][y1].wall[3]; // 左
+    if (x1 + 1 == x2 && y1 == y2)
+        return !cells[x1][y1].wall[2]; // 下
+    if (x1 - 1 == x2 && y1 == y2)
+        return !cells[x1][y1].wall[0]; // 上
+    return false;
+}
 \end{lstlisting}
+
+\textbf{入口、出口与路径}
+
+入口和出口以坐标形式存储于Maze类中。路径以点的序列（如\texttt{std::vector<Point>}）表示，Point结构体包含行列坐标。
+
+\subsection{主要接口与算法}
+
+Maze类提供如下主要接口，便于路径搜索算法调用：
+
+\begin{lstlisting}[language=C++, caption={获取可通行相邻格点}]
+std::vector<Point> Maze::getAccessibleNeighbors(int x, int y) const {
+    std::vector<Point> neighbors;
+    if (!cells[x][y].wall[0] && x > 0) neighbors.emplace_back(x-1, y);
+    if (!cells[x][y].wall[1] && y < cols-1) neighbors.emplace_back(x, y+1);
+    if (!cells[x][y].wall[2] && x < rows-1) neighbors.emplace_back(x+1, y);
+    if (!cells[x][y].wall[3] && y > 0) neighbors.emplace_back(x, y-1);
+    return neighbors;
+}
+\end{lstlisting}
+
+
 
 \section{算法设计与复杂度分析}
 
@@ -256,36 +239,6 @@ public:
 \subsubsection{算法原理}
 DFS使用栈结构，从起点开始深度优先遍历，直到找到目标点或遍历完所有可达节点。
 
-\subsubsection{实现要点}
-\begin{lstlisting}[language=C++]
-SearchResult PathFinder::dfs(const Maze& maze, const Point& start, const Point& goal) {
-    std::stack<Point> stack;
-    std::unordered_map<Point, Point, PointHash> parent;
-    std::unordered_set<Point, PointHash> visited;
-    
-    stack.push(start);
-    visited.insert(start);
-    
-    while (!stack.empty()) {
-        Point current = stack.top();
-        stack.pop();
-        
-        if (current == goal) {
-            return reconstructPath(parent, start, goal, visited.size());
-        }
-        
-        for (const Point& neighbor : maze.getAccessibleNeighbors(current)) {
-            if (visited.find(neighbor) == visited.end()) {
-                visited.insert(neighbor);
-                parent[neighbor] = current;
-                stack.push(neighbor);
-            }
-        }
-    }
-    
-    return SearchResult(); // 未找到路径
-}
-\end{lstlisting}
 
 \subsubsection{复杂度分析}
 \begin{itemize}
@@ -299,36 +252,6 @@ SearchResult PathFinder::dfs(const Maze& maze, const Point& start, const Point& 
 \subsubsection{算法原理}
 BFS使用队列结构，按层次遍历，保证找到的第一条路径是最短路径。
 
-\subsubsection{实现要点}
-\begin{lstlisting}[language=C++]
-SearchResult PathFinder::bfs(const Maze& maze, const Point& start, const Point& goal) {
-    std::queue<Point> queue;
-    std::unordered_map<Point, Point, PointHash> parent;
-    std::unordered_set<Point, PointHash> visited;
-    
-    queue.push(start);
-    visited.insert(start);
-    
-    while (!queue.empty()) {
-        Point current = queue.front();
-        queue.pop();
-        
-        if (current == goal) {
-            return reconstructPath(parent, start, goal, visited.size());
-        }
-        
-        for (const Point& neighbor : maze.getAccessibleNeighbors(current)) {
-            if (visited.find(neighbor) == visited.end()) {
-                visited.insert(neighbor);
-                parent[neighbor] = current;
-                queue.push(neighbor);
-            }
-        }
-    }
-    
-    return SearchResult();
-}
-\end{lstlisting}
 
 \subsubsection{复杂度分析}
 \begin{itemize}
@@ -346,39 +269,6 @@ A*算法结合了Dijkstra算法的准确性和贪心搜索的效率，使用评�
 采用曼哈顿距离作为启发式函数：
 $$h(n) = |x_n - x_{goal}| + |y_n - y_{goal}|$$
 
-\subsubsection{实现要点}
-\begin{lstlisting}[language=C++]
-struct AStarNode {
-    Point point;
-    int gCost;  // 从起点到当前点的实际代价
-    int hCost;  // 启发式代价
-    int fCost;  // gCost + hCost
-    AStarNode* parent;
-};
-
-SearchResult PathFinder::aStar(const Maze& maze, const Point& start, const Point& goal) {
-    std::priority_queue<AStarNode*, std::vector<AStarNode*>, 
-                       std::greater<AStarNode*>> openSet;
-    std::unordered_map<Point, AStarNode*, PointHash> allNodes;
-    
-    AStarNode* startNode = new AStarNode(start, 0, manhattanDistance(start, goal));
-    openSet.push(startNode);
-    allNodes[start] = startNode;
-    
-    while (!openSet.empty()) {
-        AStarNode* current = openSet.top();
-        openSet.pop();
-        
-        if (current->point == goal) {
-            return reconstructPathAStar(current, allNodes.size());
-        }
-        
-        // 处理邻居节点...
-    }
-    
-    return SearchResult();
-}
-\end{lstlisting}
 
 \subsubsection{复杂度分析}
 \begin{itemize}
@@ -387,66 +277,40 @@ SearchResult PathFinder::aStar(const Maze& maze, const Point& start, const Point
     \item \textbf{特点}：在启发式函数可采纳的情况下，保证找到最优解
 \end{itemize}
 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.4\linewidth]{performance.png}
+    \caption{三种算法复杂度分析及最短路径显示}
+    \label{fig:performance}
+\end{figure}
+
+
+
+\newpage
 \section{可视化系统实现}
 
 \subsection{ASCII字符可视化}
 
 实现了基于线段的ASCII字符迷宫显示：
 
-\begin{lstlisting}[language=C++]
-void Visualizer::displayMazeSegments(const Maze& maze) {
-    // 使用Unicode字符绘制线段墙壁
-    // ┌ ┬ ┐ ├ ┼ ┤ └ ┴ ┘ │ ─
-    
-    for (int row = 0; row < rows; row++) {
-        // 绘制水平墙壁
-        for (int col = 0; col < cols; col++) {
-            if (maze.hasWall({row, col}, WallDirection::TOP)) {
-                std::cout << "───";
-            } else {
-                std::cout << "   ";
-            }
-        }
-        std::cout << std::endl;
-        
-        // 绘制垂直墙壁和格子内容
-        for (int col = 0; col < cols; col++) {
-            if (maze.hasWall({row, col}, WallDirection::LEFT)) {
-                std::cout << "│";
-            } else {
-                std::cout << " ";
-            }
-            // 绘制格子内容
-            displayCellContent(maze.getCell({row, col}));
-        }
-        std::cout << std::endl;
-    }
-}
-\end{lstlisting}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.3\linewidth]{tabular_maze.png}
+    \caption{生成一个10*10的矩形格子迷宫示意图}
+    \label{fig:矩形迷宫}
+\end{figure}
 
-\subsection{HTML可视化与动画}
+\subsection{HTML可视化}
 
-实现了HTML格式的迷宫导出，支持路径动画：
+实现了HTML格式的迷宫导出：
 
-\begin{lstlisting}[language=C++]
-void Visualizer::exportToHTML(const std::string& filename, 
-                             const Maze& maze, 
-                             const std::vector<Point>& path) {
-    std::ofstream file(filename);
-    
-    file << "<!DOCTYPE html>\n<html>\n<head>\n";
-    file << "<style>\n";
-    file << ".maze-container { font-family: monospace; }\n";
-    file << ".maze-cell { display: inline-block; position: relative; }\n";
-    file << ".path-animation { animation: highlight 2s infinite; }\n";
-    file << "</style>\n</head>\n<body>\n";
-    
-    // 生成迷宫HTML内容
-    generateMazeHTML(file, maze, path);
-    
-    file << "</body>\n</html>";
-}
-\end{lstlisting}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.4\linewidth]{maze_html.png}
+    \caption{HTML可视化12*12迷宫示意图}
+    \label{fig:maze_html}
+\end{figure}
+\newpage
 
 \section{性能测试与结果分析}
 
@@ -493,6 +357,7 @@ void Visualizer::exportToHTML(const std::string& filename,
     \item \textbf{节点访问}：A*通过启发式函数指导，访问节点数最少，搜索效率最高
 \end{enumerate}
 
+\newpage
 \section{进阶功能实现}
 
 \subsection{多路径搜索}
@@ -511,7 +376,18 @@ std::vector<std::vector<Point>> PathFinder::findAllPaths(
 \end{lstlisting}
 
 \subsection{迷宫生成算法}
+我采用了两种不同的迷宫生成方式以供用户选择：
 
+1. 基于概率的随机墙壁移除算法
+
+2. 基于DFS的迷宫生成，确保起点S与终点E之间的连通性
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.4\linewidth]{generate_maze.png}
+    \caption{两种迷宫生成算法选择}
+    \label{fig:generate}
+\end{figure}
 \subsubsection{随机生成}
 基于概率的随机墙壁移除：
 \begin{lstlisting}[language=C++]
@@ -525,7 +401,6 @@ void Maze::generateRandomMaze(double wallRemovalProbability) {
             }
         }
     }
-}
 \end{lstlisting}
 
 \subsubsection{DFS生成}
@@ -555,88 +430,48 @@ void Maze::generateMazeWithDFS() {
 }
 \end{lstlisting}
 
-\subsection{算法优化}
 
-\subsubsection{内存池}
-实现内存池优化A*算法的节点分配：
-\begin{lstlisting}[language=C++]
-class NodePool {
-private:
-    std::vector<AStarNode> pool;
-    size_t nextIndex;
-    
-public:
-    NodePool(size_t size) : pool(size), nextIndex(0) {}
-    
-    AStarNode* allocate() {
-        if (nextIndex < pool.size()) {
-            return &pool[nextIndex++];
-        }
-        return nullptr;
-    }
-    
-    void reset() { nextIndex = 0; }
-};
-\end{lstlisting}
+\subsection{Mondiran“闯入名画”的迷宫生成和路径搜索}
 
-\subsubsection{双向搜索}
-实现双向BFS提高搜索效率：
-\begin{lstlisting}[language=C++]
-SearchResult PathFinder::bidirectionalBFS(const Maze& maze, 
-                                         const Point& start, 
-                                         const Point& goal) {
-    std::queue<Point> forwardQueue, backwardQueue;
-    std::unordered_set<Point, PointHash> forwardVisited, backwardVisited;
-    
-    forwardQueue.push(start);
-    backwardQueue.push(goal);
-    forwardVisited.insert(start);
-    backwardVisited.insert(goal);
-    
-    while (!forwardQueue.empty() && !backwardQueue.empty()) {
-        // 交替执行前向和后向搜索
-        if (expandForward(maze, forwardQueue, forwardVisited, backwardVisited)) {
-            // 找到交汇点，重建路径
-            return reconstructBidirectionalPath();
-        }
-        
-        if (expandBackward(maze, backwardQueue, backwardVisited, forwardVisited)) {
-            return reconstructBidirectionalPath();
-        }
-    }
-    
-    return SearchResult();
-}
-\end{lstlisting}
+Mondrian迷宫是一种受荷兰画家蒙德里安（Piet Mondrian）风格启发的迷宫类型，其特点是将迷宫空间递归地分割为若干矩形色块区域，每个区域之间通过墙壁和门相互连接，形成独特的分区结构。该迷宫不仅具有美学上的分块效果，也为多路径搜索提供了丰富的空间结构。
 
-\section{项目总结}
-
-\subsection{技术成果}
+\paragraph{生成算法}
+Mondrian迷宫的生成过程主要包括以下几个步骤：
 \begin{enumerate}
-    \item 成功实现了基于线段墙壁的迷宫数据结构，提供了更精确的迷宫表示方法
-    \item 实现了三种经典路径搜索算法，并进行了详细的性能分析
-    \item 开发了美观的可视化系统，支持ASCII和HTML两种输出格式
-    \item 实现了多种迷宫生成算法和进阶搜索功能
-    \item 项目代码总计约3500行，结构清晰，易于维护和扩展
+    \item \textbf{初始区域设定}：以整个迷宫的矩形区域为起点，递归进行分割。
+    \item \textbf{递归分割}：每次选择一个区域，随机决定是横向还是纵向分割，并在分割线上随机开设门洞，保证区域之间连通。
+    \item \textbf{终止条件}：当区域的宽度或高度小于设定的最小阈值时，停止分割，形成最终的色块房间。
+    \item \textbf{邻接关系建立}：记录每个房间之间的门的位置，构建房间之间的邻接图，为后续路径搜索做准备。
 \end{enumerate}
 
-\subsection{创新点}
+\paragraph{路径搜索}
+Mondrian迷宫的路径搜索不仅支持传统的单一路径（如BFS、DFS），还支持多路径（如前$k$条最短路径）的查找。具体流程如下：
 \begin{itemize}
-    \item \textbf{线段墙壁表示}：采用四方向独立墙壁的创新数据结构
-    \item \textbf{模块化设计}：清晰的类层次结构，便于功能扩展
-    \item \textbf{性能优化}：实现了内存池、双向搜索等优化技术
-    \item \textbf{丰富可视化}：支持动画演示和HTML导出
+    \item \textbf{单路径搜索}：采用广度优先搜索（BFS）或深度优先搜索（DFS）算法，从入口房间出发，遍历邻接图，找到一条通往出口的路径。
+    \item \textbf{多路径搜索}：基于BFS的分层思想，记录所有可能的路径分支，优先扩展较短路径，最终输出前$k$条最短路径。每条路径可在可视化时高亮显示，便于对比分析。
 \end{itemize}
 
-\subsection{学习收获}
-通过本项目的实施，深入理解了：
-\begin{itemize}
-    \item 数据结构设计的重要性及其对算法性能的影响
-    \item 图搜索算法的原理、实现和应用场景
-    \item C++面向对象编程和模板编程技术
-    \item 算法复杂度分析和性能优化方法
-    \item 软件工程中的模块化设计思想
-\end{itemize}
+\paragraph{可视化与应用}
+Mondrian迷宫的生成和路径搜索结果可导出为HTML文件，支持多路径高亮显示。其分块结构和多路径特性为路径规划、分区管理等实际问题提供了良好的建模基础。
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\linewidth]{Mondrian.png}
+    \caption{Mondrian迷宫及路径搜索效果}
+    \label{fig:Mondrian迷宫及路径搜索效果图}
+\end{figure}
+\newpage
+\section{项目总结}
+
+\subsection{技术成果和创新点}
+\begin{enumerate}
+    \item 成功实现了基于线段墙壁的迷宫数据结构，提供了更精确的迷宫表示方法
+    \item 开发了美观的可视化系统，支持终端ASCII和网页HTML两种输出格式
+    \item 实现了随机擦除、DFS等多种迷宫生成算法和BFS,DFS,A*三种迷宫路径搜索功能
+    \item 实现了Mondrian风格画的迷宫生成和路径搜索算法，并用HTML可视化
+    \item 项目代码总计约2200行，分成include和src两个文件夹，结构清晰，易于维护和扩展
+\end{enumerate}
+
 
 \subsection{未来展望}
 项目可以在以下方面进一步改进：
@@ -645,10 +480,9 @@ SearchResult PathFinder::bidirectionalBFS(const Maze& maze,
     \item 添加更多高级搜索算法（JPS、IDA*等）
     \item 支持3D迷宫和多层迷宫
     \item 实现网络多人协作寻路
-    \item 添加迷宫求解的机器学习方法
+    \item 添加迷宫求解的机器学习和深度学习算法
 \end{enumerate}
 
-\section{参考文献}
 
 \begin{thebibliography}{9}
 \bibitem{algorithms}
@@ -667,8 +501,7 @@ Pragmatic Bookshelf.
 
 \bibitem{pathfinding}
 Patel, A. (2012). 
-Introduction to A*. Retrieved from 
-\texttt{http://theory.stanford.edu/~amitp/GameProgramming/AStarComparison.html}
+Introduction to A*. 
 
 \bibitem{cpp}
 Stroustrup, B. (2013). 
