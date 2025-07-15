@@ -1,57 +1,41 @@
-# C++ Maze Pathfinder / C++ 迷宫寻路系统
+# 蒙德里安迷宫路径搜索系统
 
-A fully-functional C++ maze pathfinding system that implements multiple search algorithms and provides a graphical visualization interface, with support for both rectangular and circular mazes.
+## 项目特性
 
-一个功能完整的C++迷宫寻路系统，实现了多种路径寻找算法并提供图形化可视化界面，支持矩形和圆形两种迷宫。
-
----
-
-## 🎯 Project Features / 项目特性
-
-- **Multiple Maze Types / 多种迷宫类型**:
-  - **Rectangular Maze**: Standard grid-based maze. / **矩形迷宫**：标准的网格迷宫。
-  - **Circular Maze**: (Advanced Feature) Generates and solves complex circular (theta) mazes. / **圆形迷宫**（进阶功能）：生成并求解复杂的圆形迷宫。
-
-- **Maze Generation / 迷宫生成**:
-  - **DFS Algorithm**: Generates perfect mazes (guaranteed to be solvable). / **DFS算法**：生成保证连通的完美迷宫。
-  - **Randomized Walls**: Generates mazes by randomly removing walls. / **随机墙壁**：通过随机移除墙壁生成迷宫。
-
-- **Pathfinding Algorithms / 路径寻找算法**:
-  - **DFS**: Depth-First Search. / **深度优先搜索**。
-  - **BFS**: Breadth-First Search (guarantees the shortest path in steps). / **广度优先搜索**（保证步数最短）。
-  - **A***: A* Search with Manhattan distance heuristic. / **A\*算法**：使用曼哈顿距离作为启发函数。
-
-- **Visualization / 可视化展示**:
-  - **Console Output**: Displays the maze directly in the console with ASCII characters. / **控制台输出**：使用ASCII字符在控制台直接显示迷宫。
-  - **HTML Export**: Exports the maze and the solution path to a visual HTML file (supports both rectangular and circular mazes). / **HTML导出**：将迷宫和路径导出为可视化的HTML文件（同时支持矩形和圆形迷宫）。
-
-- **Analysis / 性能分析**:
-  - Provides performance comparison of different algorithms, including execution time, nodes visited, and path length. / 提供不同算法的性能对比，包括执行时间、访问节点数和路径长度。
+- **多种迷宫类型**：支持经典格点迷宫、蒙德里安风格迷宫、圆形迷宫等多种生成方式。
+- **多算法寻路**：内置广度优先搜索（BFS）、深度优先搜索（DFS）等多种路径搜索算法，保证最短路径可查找。
+- **多路径支持**：可查找并导出蒙德里安迷宫的前6条最短路径，适合算法教学与可视化演示。
+- **终端与HTML可视化**：支持终端ASCII可视化和美观的HTML导出，HTML文件自动居中显示，适合浏览器查看。
+- **结构清晰，易于扩展**：采用模块化设计，便于添加新迷宫类型或算法。
 
 ---
 
-## 🏗️ Project Framework / 项目框架
+## 项目框架
 
-The project is designed with a modular and extensible structure. The core components are decoupled, making it easy to add new maze types or algorithms.
+- **main.cpp**：主程序入口，负责用户交互、迷宫生成、算法选择、结果导出等流程控制。
+- **maze.h / maze.cpp**：格点迷宫的核心数据结构与生成、操作方法。
+- **CircularMaze.h / CircularMaze.cpp**：圆形迷宫的数据结构与生成、操作方法。
+- **mondrian_maze.h / mondrian_maze.cpp**：蒙德里安风格迷宫的生成、房间分割、邻接关系与多路径搜索。
+- **pathfinder.h / pathfinder.cpp**：通用路径搜索算法（BFS、DFS等），支持多种迷宫类型。
+- **visualizer.h / visualizer.cpp**：终端与HTML可视化输出，支持多路径高亮、SVG导出等。
+- **Makefile**：一键编译脚本，自动管理依赖。
+- **.gitignore**：忽略中间文件、可执行文件、HTML导出文件等。
 
-项目采用模块化和可扩展的设计。核心组件之间解耦，可以轻松添加新的迷宫类型或寻路算法。
-
-### Class Structure and Call Flow / 类结构与调用流程
-
-```mermaid
 classDiagram
     class MazeApplication {
         -unique_ptr<Maze> maze
-        -PathFinder pathFinder
-        -Visualizer visualizer
+        -unique_ptr<PathFinder> pathFinder
+        -unique_ptr<Visualizer> visualizer
         +run()
         +createMaze()
         +solveMazeMenu()
+        +exportMenu()
     }
 
     class Maze {
         <<Abstract>>
-        #grid
+        #width
+        #height
         +virtual generate()
         +virtual getAccessibleNeighbors()
         +virtual isValidPosition()
@@ -59,26 +43,41 @@ classDiagram
 
     class RectangularMaze {
         // Inherits from Maze
+        -grid
+        +generate() override
+        +getAccessibleNeighbors() override
     }
-    
+
     class CircularMaze {
         // Inherits from Maze
+        -rings
+        -sectors
         -horizontal_walls
         -vertical_walls
         +generate() override
         +getAccessibleNeighbors() override
     }
 
+    class MondrianMaze {
+        // Inherits from Maze
+        -rooms
+        -adjacency
+        +generate() override
+        +getAccessibleNeighbors() override
+        +findMultiplePaths()
+    }
+
     class PathFinder {
         +findPathDFS(Maze) SearchResult
         +findPathBFS(Maze) SearchResult
-        +findPathAStar(Maze) SearchResult
+        +findMultipleShortestPaths(Maze, k) SearchResult[]
     }
 
     class Visualizer {
         +displayMaze(Maze)
-        +exportToHTML(Maze, path)
-        +exportCircularToHTML(CircularMaze, path)
+        +exportToHTML(Maze, paths)
+        +exportCircularToHTML(CircularMaze, paths)
+        +exportMondrianToHTML(MondrianMaze, paths)
     }
 
     MazeApplication --> Maze : Creates
@@ -88,143 +87,99 @@ classDiagram
     Visualizer "1" -- "1" Maze : Uses (for drawing)
     Maze <|-- RectangularMaze
     Maze <|-- CircularMaze
-```
-
-- **`main.cpp` (`MazeApplication`)**: The main entry point. It handles user interaction and orchestrates the creation, solving, and visualization of mazes.
-- **`Maze` (Base Class)**: An abstract base class defining the common interface for all maze types. It uses virtual functions like `generate()` and `getAccessibleNeighbors()` to allow for polymorphism.
-- **`RectangularMaze` / `CircularMaze`**: Concrete implementations of the `Maze` class, each with its own data structure and generation logic.
-- **`PathFinder`**: Contains the pathfinding algorithms (DFS, BFS, A*). It operates on a `Maze` object, making it independent of the specific maze type.
-- **`Visualizer`**: Responsible for rendering the maze, both in the console and as an HTML file. It uses `dynamic_cast` to handle different maze types for visualization.
+    Maze <|-- MondrianMaze
 
 ---
 
-## 📁 Project Structure / 项目文件结构
+## 项目文件结构
 
 ```
 UCAS-DSA-Project/
-├── maze.h              # Base class for mazes / 迷宫基类
-├── maze.cpp            # Implementation for RectangularMaze / 矩形迷宫实现
-├── CircularMaze.h      # Class definition for circular mazes / 圆形迷宫类定义
-├── CircularMaze.cpp    # Implementation for circular mazes / 圆形迷宫实现
-├── pathfinder.h        # Pathfinding algorithms definition / 寻路算法定义
-├── pathfinder.cpp      # Pathfinding algorithms implementation / 寻路算法实现
-├── visualizer.h        # Visualizer definition / 可视化器定义
-├── visualizer.cpp      # Visualizer implementation / 可视化器实现
-├── main.cpp            # Main program file / 主程序文件
-├── Makefile            # Build configuration / 编译配置文件
-└── README.md           # This file / 本文档
+├── src/                    # 源代码目录
+│   ├── main.cpp
+│   ├── maze.cpp
+│   ├── CircularMaze.cpp
+│   ├── mondrian_maze.cpp
+│   ├── pathfinder.cpp
+│   └── visualizer.cpp
+├── include/                # 头文件目录
+│   ├── maze.h
+│   ├── CircularMaze.h
+│   ├── mondrian_maze.h
+│   ├── pathfinder.h
+│   └── visualizer.h
+├── Makefile                # 构建脚本
+├── LICENSE                 
+├── .gitignore              
+└── README.md               
 ```
 
 ---
 
-## 🛠️ Build and Run / 编译和运行
+## 使用说明
 
-### Requirements / 系统要求
-- C++17 compiler (g++)
-- Make tool
-- Linux/macOS/Windows (Linux recommended)
+### 依赖环境
 
-### Build Instructions / 编译指令
+- 支持 C++11 及以上标准的编译器（如 g++）
+- 推荐 Linux/macOS/WSL 环境，Windows 亦可
+
+### 编译方法
 
 ```bash
-# Clean previous builds (optional)
-make clean
-
-# Compile the program
 make
-
-# Run the program
-./maze_solver
+```
+或手动编译：
+```bash
+g++ -std=c++11 -Iinclude src/*.cpp -o maze_solver
 ```
 
----
-
-## 🎮 How to Use / 使用说明
-
-1.  **Create a Maze / 创建迷宫**:
-    - Choose `1` in the main menu.
-    - Select `1` for a rectangular maze or `2` for a circular maze.
-    - Follow the prompts to specify dimensions.
-
-2.  **Solve the Maze / 求解迷宫**:
-    - Choose `2` in the main menu.
-    - Select a pathfinding algorithm (DFS, BFS, or A*).
-
-3.  **Export Results / 导出结果**:
-    - Choose `5` in the main menu.
-    - Select `2` to generate an HTML file.
-    - Enter a filename. The program will generate an HTML file (e.g., `my_maze.html`) in the project directory.
-
----
-
-## 🧪 Testing Guide / 测试指南
-
-### Quick Test / 快速测试
+### 运行方法
 
 ```bash
-# Compile the program / 编译程序
-make
-
-# Run the program / 运行程序
 ./maze_solver
 ```
+根据终端提示选择迷宫类型、生成方式、算法、导出等操作。
 
-### Test Cases / 测试用例
+### 主要功能菜单
 
-#### Test Case 1: Create a Simple Rectangular Maze / 测试用例1：创建简单矩形迷宫
-1. Start the program / 启动程序
-2. Choose "1. Create Maze" / 选择 "1. 创建迷宫"
-3. Choose "1. Create Rectangular Maze" / 选择 "1. 创建矩形迷宫"
-4. Enter maze dimensions: 8 12 / 输入迷宫尺寸：8 12
-5. Choose generation method: 1 (Random) or 2 (DFS) / 选择生成方式：1 (随机) 或 2 (DFS)
-6. If choosing random, enter wall removal probability: 0.3 / 如果选择随机，输入墙壁移除概率：0.3
-
-#### Test Case 2: Create a Circular Maze / 测试用例2：创建圆形迷宫
-1. Start the program / 启动程序
-2. Choose "1. Create Maze" / 选择 "1. 创建迷宫"
-3. Choose "2. Create Circular Maze" / 选择 "2. 创建圆形迷宫"
-4. Enter number of rings: 5 / 输入环数：5
-
-#### Test Case 3: Solve Maze with BFS / 测试用例3：使用BFS求解迷宫
-1. Choose "2. Solve Maze" / 选择 "2. 求解迷宫"
-2. Choose "2. Breadth-First Search (BFS)" / 选择 "2. 广度优先搜索 (BFS)"
-3. Choose to display path visualization: y / 选择显示路径可视化：y
-
-#### Test Case 4: Compare All Algorithms / 测试用例4：比较所有算法
-1. Choose "3. Algorithm Performance Comparison" / 选择 "3. 算法性能比较"
-2. Observe the performance differences between algorithms / 观察不同算法的性能差异
-
-#### Test Case 5: Export HTML Visualization / 测试用例5：导出HTML可视化
-1. Choose "5. Export Results" / 选择 "5. 导出结果"
-2. Choose "2. Generate HTML Visualization File" / 选择 "2. 生成HTML可视化文件"
-3. Enter filename: test_maze / 输入文件名：test_maze
-4. Open test_maze.html in your browser / 在浏览器中打开 test_maze.html
-
-### Expected Results / 预期结果
-
-The program should be able to: / 程序应该能够：
-- Successfully generate mazes / 成功生成迷宫
-- Find paths from start to end / 找到从起点到终点的路径
-- Display algorithm performance comparison / 显示算法性能比较
-- Generate HTML visualization files / 生成HTML可视化文件
-
-### Performance Benchmarks / 性能基准
-
-On standard hardware (Intel i5, 8GB RAM): / 在标准硬件上（Intel i5，8GB RAM）：
-- 10×10 maze: < 1ms / 10×10迷宫：< 1ms
-- 50×50 maze: < 100ms / 50×50迷宫：< 100ms
-- 100×100 maze: < 1s / 100×100迷宫：< 1s
-
-### Known Issues / 已知问题
-
-- Some terminals may not support color display / 某些终端可能不支持颜色显示
-- Animation features need further improvement / 动画功能需要进一步完善
-- Large mazes may require longer computation time / 大型迷宫可能需要更长的计算时间
+1. 生成迷宫（支持格点、圆形、蒙德里安风格）
+2. 选择路径搜索算法（BFS、DFS等）
+3. 查找并显示路径（支持多路径）
+4. 导出HTML可视化文件（自动居中，多路径高亮）
 
 ---
 
-## 📄 License / 许可证
+## 测试用例
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+### 1. 生成并求解经典格点迷宫
 
-本项目采用MIT许可证授权。详见[LICENSE](LICENSE)文件。
+- 选择“生成迷宫”，输入尺寸如 10×10
+- 选择“DFS”或“随机”生成方式
+- 选择“BFS”算法求解
+- 可导出HTML文件查看路径
+
+### 2. 生成并求解蒙德里安迷宫（多路径）
+
+- 选择“生成迷宫”->“蒙德里安风格”
+- 自动生成色块分割迷宫
+- 选择“多路径导出”，可导出前6条最短路径的HTML文件
+- 打开HTML文件，查看所有路径高亮效果
+
+### 3. 生成并求解圆形迷宫
+
+- 选择“生成迷宫”->“圆形迷宫”
+- 输入环数等参数
+- 选择算法求解并导出HTML
+
+---
+
+## 其他说明
+
+- 所有HTML导出文件均自动居中，适合演示与教学。
+- 代码结构清晰，便于二次开发和扩展。
+- 如需自定义迷宫类型或算法，可在 `src/` 和 `include/` 目录下扩展相应模块。
+
+---
+
+
+

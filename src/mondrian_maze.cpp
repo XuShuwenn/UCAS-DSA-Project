@@ -116,50 +116,89 @@ const std::vector<Room>& MondrianMaze::getRooms() const { return rooms; }
 int MondrianMaze::getEntranceId() const { return entranceId; }
 int MondrianMaze::getExitId() const { return exitId; }
 
-// BFS路径搜索，要求经过至少minRooms个房间
+// BFS路径搜索，找到从startId到endId的最短路径
 std::vector<int> MondrianMaze::findPath(int startId, int endId, int minRooms) const {
-    std::queue<std::vector<int>> q;
+    // 队列中存储当前节点
+    std::queue<int> q;
+    // a_map来存储路径，key是当前节点，value是它的前一个节点
+    std::map<int, int> parent_map;
+    // 访问过的节点集合
     std::unordered_set<int> visited;
-    q.push({startId});
+
+    q.push(startId);
+    visited.insert(startId);
+    parent_map[startId] = -1; // -1表示没有父节点
+
     while (!q.empty()) {
-        auto path = q.front(); q.pop();
-        int curr = path.back();
-        if (curr == endId && path.size() >= (size_t)minRooms) return path;
-        for (int nb : rooms[curr].neighbors) {
-            if (std::find(path.begin(), path.end(), nb) == path.end()) {
-                auto next = path;
-                next.push_back(nb);
-                q.push(next);
+        int current = q.front();
+        q.pop();
+
+        if (current == endId) {
+            // 找到终点，开始回溯路径
+            std::vector<int> path;
+            int node = endId;
+            while (node != -1) {
+                path.push_back(node);
+                node = parent_map[node];
+            }
+            std::reverse(path.begin(), path.end());
+            if(path.size() >= (size_t)minRooms) {
+                return path;
+            } else {
+                return {}; // 路径太短，视为无解
+            }
+        }
+
+        for (int neighbor : rooms[current].neighbors) {
+            if (visited.find(neighbor) == visited.end()) {
+                visited.insert(neighbor);
+                parent_map[neighbor] = current;
+                q.push(neighbor);
             }
         }
     }
+
     return {}; // 无解
 }
 
-// 枚举所有路径，最多返回前maxPaths条，且路径长度不超过maxLength
-void findAllPathsLimited(const MondrianMaze& maze, int start, int end, int maxPaths, int maxLength, std::vector<std::vector<int>>& allPaths) {
+// 枚举所有最短路径，最多返回前maxPaths条
+void findAllPathsLimited(const MondrianMaze& maze, int start, int end, int maxPaths, int /*maxLength*/, std::vector<std::vector<int>>& allPaths) {
+    // 1. 先用BFS求最短路径长度
+    std::queue<std::pair<int, int>> q;
+    std::unordered_map<int, int> dist;
+    q.push({start, 0});
+    dist[start] = 0;
+    int minLen = -1;
+    while (!q.empty()) {
+        auto [u, d] = q.front(); q.pop();
+        if (u == end) { minLen = d; break; }
+        for (int nb : maze.getRoom(u).neighbors) {
+            if (!dist.count(nb)) {
+                dist[nb] = d + 1;
+                q.push({nb, d + 1});
+            }
+        }
+    }
+    if (minLen == -1) return; // 无解
+
+    // 2. 用DFS枚举所有长度等于minLen的路径
     std::vector<int> path;
     std::unordered_set<int> visited;
-    std::function<void(int)> dfs = [&](int u) {
-        if ((int)allPaths.size() >= maxPaths || (int)path.size() >= maxLength) {
-            return;
-        }
-
+    std::function<void(int, int)> dfs = [&](int u, int depth) {
+        if ((int)allPaths.size() >= maxPaths) return;
         path.push_back(u);
         visited.insert(u);
-
-        if (u == end) {
+        if (u == end && depth == minLen) {
             allPaths.push_back(path);
-        } else {
+        } else if (depth < minLen) {
             for (int nb : maze.getRoom(u).neighbors) {
-                if (visited.find(nb) == visited.end()) {
-                    dfs(nb);
+                if (!visited.count(nb)) {
+                    dfs(nb, depth + 1);
                 }
             }
         }
-        
         path.pop_back();
         visited.erase(u);
     };
-    dfs(start);
+    dfs(start, 0);
 } 

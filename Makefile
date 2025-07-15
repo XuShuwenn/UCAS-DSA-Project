@@ -5,7 +5,7 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -g
 
 # 源文件和目标文件
-SOURCES = main.cpp maze.cpp pathfinder.cpp visualizer.cpp CircularMaze.cpp mondrian_maze.cpp
+SOURCES = src/main.cpp src/maze.cpp src/pathfinder.cpp src/visualizer.cpp src/CircularMaze.cpp src/mondrian_maze.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
 TARGET = maze_solver
 
@@ -18,8 +18,8 @@ $(TARGET): $(OBJECTS)
 	@echo "编译完成！可执行文件: $(TARGET)"
 
 # 编译源文件为目标文件
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+src/%.o: src/%.cpp
+	$(CXX) $(CXXFLAGS) -Iinclude -c $< -o $@
 
 # 清理生成的文件
 clean:
@@ -101,8 +101,9 @@ help:
 .PHONY: all clean rebuild run debug release install uninstall test docs memcheck format analyze package help
 
 # 依赖关系
-main.o: main.cpp maze.h pathfinder.h visualizer.h CircularMaze.h mondrian_maze.h
-maze.o: maze.cpp maze.h
-pathfinder.o: pathfinder.cpp pathfinder.h maze.h
-visualizer.o: visualizer.cpp visualizer.h maze.h pathfinder.h CircularMaze.h mondrian_maze.h
-CircularMaze.o: CircularMaze.cpp CircularMaze.h maze.h
+src/main.o: src/main.cpp include/maze.h include/pathfinder.h include/visualizer.h include/CircularMaze.h include/mondrian_maze.h
+src/maze.o: src/maze.cpp include/maze.h
+src/pathfinder.o: src/pathfinder.cpp include/pathfinder.h include/maze.h
+src/visualizer.o: src/visualizer.cpp include/visualizer.h include/maze.h include/pathfinder.h include/CircularMaze.h include/mondrian_maze.h
+src/CircularMaze.o: src/CircularMaze.cpp include/CircularMaze.h include/maze.h
+src/mondrian_maze.o: src/mondrian_maze.cpp include/mondrian_maze.h include/maze.h

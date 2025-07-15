@@ -12,6 +12,8 @@
 #include <fstream>
 #include <cmath>
 #include "mondrian_maze.h"
+#include <unordered_set> // Added for unordered_set
+#include <map>
 
 /**
  * 可视化器的实现 - 支持线段墙壁显示
@@ -315,7 +317,7 @@ std::string Visualizer::generateHTMLHeader() const {
     return R"(<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>迷宫可视化</title>
     <style>
@@ -323,6 +325,7 @@ std::string Visualizer::generateHTMLHeader() const {
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
             margin: 20px;
+            text-align: center; /* 新增：让所有内容居中 */
         }
         .maze-container {
             display: inline-block;
@@ -331,6 +334,7 @@ std::string Visualizer::generateHTMLHeader() const {
             border-radius: 10px;
             padding: 20px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin: 0 auto; /* 新增：居中容器 */
         }
         .maze-grid {
             display: grid;
@@ -357,6 +361,15 @@ std::string Visualizer::generateHTMLHeader() const {
         .cell-exit { background-color: #F44336; color: white; }
         .cell-path { background-color: #FFEB3B; }
         .cell-visited { background-color: #FFC107; }
+        .arrow {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 24px;
+            height: 24px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
         .info-panel {
             margin-top: 20px;
             padding: 15px;
@@ -384,6 +397,12 @@ std::string Visualizer::generateMazeHTML(const Maze& maze, const std::vector<Poi
         pathSet.insert(p);
     }
     
+    // 计算每个点的下一个点方向
+    std::map<Point, Point> nextMap;
+    for (size_t i = 1; i < path.size(); ++i) {
+        nextMap[path[i-1]] = path[i];
+    }
+    
     html << "    <div class=\"maze-container\">\n";
     html << "        <div class=\"maze-grid\" style=\"grid-template-columns: repeat(" 
          << cols << ", 30px);\">\n";
@@ -407,7 +426,21 @@ std::string Visualizer::generateMazeHTML(const Maze& maze, const std::vector<Poi
             } else if (cell.type == CellType::EXIT) {
                 html << " cell-exit\">E";
             } else if (pathSet.count(currentPoint) > 0) {
-                html << " cell-path\">•";
+                html << " cell-path\">";
+                auto it = nextMap.find(currentPoint);
+                if (it != nextMap.end()) {
+                    int dx = it->second.x - currentPoint.x;
+                    int dy = it->second.y - currentPoint.y;
+                    std::string rotate;
+                    if (dx == 1 && dy == 0) rotate = "90";
+                    else if (dx == -1 && dy == 0) rotate = "-90";
+                    else if (dx == 0 && dy == 1) rotate = "0";
+                    else if (dx == 0 && dy == -1) rotate = "180";
+                    else rotate = "0";
+                    html << "<svg class=\"arrow\" viewBox=\"0 0 24 24\" style=\"transform: rotate(" << rotate << "deg);\"><polygon points=\"6,4 18,12 6,20 8,12\" fill=\"#1976D2\"/></svg>";
+                } else {
+                    html << "<span style=\"font-size:20px;color:#1976D2;\">•</span>";
+                }
             } else {
                 html << "\">&nbsp;";
             }
@@ -691,16 +724,24 @@ void Visualizer::exportMondrianToHTML(const MondrianMaze& maze, const std::vecto
         return;
     }
     file << "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Mondrian Maze</title>"
-            "<style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;}svg{display:block;margin:auto;}</style>"
-            "</head><body>\n";
+            "<style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;}"
+            ".maze-center{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100vw;height:100vh;}"
+            "svg{display:block;margin:auto;}h2{text-align:center;}</style>"
+            "</head><body><div class=\"maze-center\">\n";
     file << "<h2>闯入蒙德里安名画 - Mondrian Maze</h2>\n";
     file << "<svg width=\"400\" height=\"400\" style=\"background:#fff;box-shadow:0 0 8px #aaa;\">\n";
+    
+    // 创建一个路径房间ID的集合，方便快速查找
+    std::unordered_set<int> path_ids(path.begin(), path.end());
+
     // 画所有房间
     for (const auto& room : maze.getRooms()) {
-        bool inPath = std::find(path.begin(), path.end(), room.id) != path.end();
-        std::string border = inPath ? "stroke:#e63946;stroke-width:6;" : "stroke:#222;stroke-width:3;";
-        file << "<rect x=\"" << room.x << "\" y=\"" << room.y << "\" width=\"" << room.width << "\" height=\"" << room.height << "\" fill=\"" << room.color << "\" style=\"" << border << "\"/>\n";
+        bool inPath = path_ids.count(room.id);
+        std::string fillColor = inPath ? "#9370DB" : room.color; // 高亮色：中紫色
+        std::string border = "stroke:#222;stroke-width:3;";
+        file << "<rect x=\"" << room.x << "\" y=\"" << room.y << "\" width=\"" << room.width << "\" height=\"" << room.height << "\" fill=\"" << fillColor << "\" style=\"" << border << "\"/>\n";
     }
+
     // 路径高亮连线
     if (path.size() >= 2) {
         std::cout << "Mondrian path: ";
@@ -711,7 +752,7 @@ void Visualizer::exportMondrianToHTML(const MondrianMaze& maze, const std::vecto
             const auto& r = maze.getRoom(rid);
             file << (r.x + r.width/2) << "," << (r.y + r.height/2) << " ";
         }
-        file << "\" fill=\"none\" stroke=\"#43aa8b\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n";
+        file << "\" fill=\"none\" stroke=\"#43aa8b\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" />\n";
     }
     // 标记入口和出口
     const auto& ent = maze.getRoom(maze.getEntranceId());
@@ -720,7 +761,7 @@ void Visualizer::exportMondrianToHTML(const MondrianMaze& maze, const std::vecto
     file << "<circle cx=\"" << (ext.x + ext.width/2) << "\" cy=\"" << (ext.y + ext.height/2) << "\" r=\"12\" fill=\"#f3722c\"/>\n";
     file << "</svg>\n";
     file << "<p>绿色圆点为入口，橙色圆点为出口，红色粗线为路径。</p>\n";
-    file << "</body></html>\n";
+    file << "</div></body></html>\n";
     file.close();
     std::cout << "蒙德里安迷宫已导出到HTML文件: " << filename << std::endl;
 }
@@ -732,27 +773,35 @@ void Visualizer::exportMondrianMultiPathsToHTML(const MondrianMaze& maze, const 
         return;
     }
     file << "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Mondrian Maze 多路径</title>"
-            "<style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;}"
-            ".path-block{margin:32px 0;text-align:center;}svg{display:block;margin:0 auto;}h3{margin-bottom:0;}</style>"
+            "<style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;}"
+            ".path-block{margin:32px auto;text-align:center;}svg{display:block;margin:auto;}h3{text-align:center;margin-bottom:0;}</style>"
             "</head><body>\n";
     file << "<h2>闯入蒙德里安名画 - 多路径解法</h2>\n";
     file << "<h3>最短路径为第 " << (shortestIdx+1) << " 条，长度 " << paths[shortestIdx].size() << "</h3>\n";
     for (size_t i = 0; i < paths.size(); ++i) {
         file << "<div class=\"path-block\">\n";
         file << "<svg width=\"400\" height=\"400\" viewBox=\"0 0 800 800\" style=\"background:#fff;box-shadow:0 0 8px #aaa;\">\n";
+        
+        // 创建当前路径的ID集合
+        std::unordered_set<int> current_path_ids(paths[i].begin(), paths[i].end());
+
         // 画所有房间
         for (const auto& room : maze.getRooms()) {
+            bool inPath = current_path_ids.count(room.id);
+            std::string fillColor = inPath ? "#9370DB" : room.color; // 高亮色：中紫色
             std::string border = "stroke:#222;stroke-width:3;";
-            file << "<rect x=\"" << room.x << "\" y=\"" << room.y << "\" width=\"" << room.width << "\" height=\"" << room.height << "\" fill=\"" << room.color << "\" style=\"" << border << "\"/>\n";
+            file << "<rect x=\"" << room.x << "\" y=\"" << room.y << "\" width=\"" << room.width << "\" height=\"" << room.height << "\" fill=\"" << fillColor << "\" style=\"" << border << "\"/>\n";
         }
-        // 路径高亮连线（绿色）
-        if (paths[i].size() >= 2) {
-            file << "<polyline points=\"";
-            for (int rid : paths[i]) {
-                const auto& r = maze.getRoom(rid);
-                file << (r.x + r.width/2) << "," << (r.y + r.height/2) << " ";
+
+        // 路径高亮连线（白色以在紫色背景上更突出）
+        if (paths[i].size() > 1) {
+            for (size_t j = 0; j < paths[i].size() - 1; ++j) {
+                const auto& r1 = maze.getRoom(paths[i][j]);
+                const auto& r2 = maze.getRoom(paths[i][j+1]);
+                file << "<line x1=\"" << (r1.x + r1.width/2) << "\" y1=\"" << (r1.y + r1.height/2) << "\" "
+                     << "x2=\"" << (r2.x + r2.width/2) << "\" y2=\"" << (r2.y + r2.height/2) << "\" "
+                     << "fill=\"none\" stroke=\"#FFFFFF\" stroke-width=\"4\" stroke-linecap=\"round\" marker-end=\"url(#arrowhead)\"/>\n";
             }
-            file << "\" fill=\"none\" stroke=\"#43aa8b\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n";
         }
         // 标记入口和出口
         const auto& ent = maze.getRoom(maze.getEntranceId());
