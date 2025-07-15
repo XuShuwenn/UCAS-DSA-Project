@@ -10,16 +10,33 @@
 
 ---
 
+## 项目文件结构
+
+```
+UCAS-DSA-Project/
+├── src/                    # 源代码目录
+│   ├── main.cpp
+│   ├── maze.cpp
+│   ├── CircularMaze.cpp
+│   ├── mondrian_maze.cpp
+│   ├── pathfinder.cpp
+│   └── visualizer.cpp
+├── include/                # 头文件目录
+│   ├── maze.h
+│   ├── CircularMaze.h
+│   ├── mondrian_maze.h
+│   ├── pathfinder.h
+│   └── visualizer.h
+├── Makefile                # 构建脚本
+├── LICENSE                 
+├── .gitignore              
+└── README.md               
+```
+
+---
+
 ## 项目框架
 
-- **main.cpp**：主程序入口，负责用户交互、迷宫生成、算法选择、结果导出等流程控制。
-- **maze.h / maze.cpp**：格点迷宫的核心数据结构与生成、操作方法。
-- **CircularMaze.h / CircularMaze.cpp**：圆形迷宫的数据结构与生成、操作方法。
-- **mondrian_maze.h / mondrian_maze.cpp**：蒙德里安风格迷宫的生成、房间分割、邻接关系与多路径搜索。
-- **pathfinder.h / pathfinder.cpp**：通用路径搜索算法（BFS、DFS等），支持多种迷宫类型。
-- **visualizer.h / visualizer.cpp**：终端与HTML可视化输出，支持多路径高亮、SVG导出等。
-- **Makefile**：一键编译脚本，自动管理依赖。
-- **.gitignore**：忽略中间文件、可执行文件、HTML导出文件等。
 
 ```mermaid
 classDiagram
@@ -93,30 +110,6 @@ classDiagram
 
 ---
 
-## 项目文件结构
-
-```
-UCAS-DSA-Project/
-├── src/                    # 源代码目录
-│   ├── main.cpp
-│   ├── maze.cpp
-│   ├── CircularMaze.cpp
-│   ├── mondrian_maze.cpp
-│   ├── pathfinder.cpp
-│   └── visualizer.cpp
-├── include/                # 头文件目录
-│   ├── maze.h
-│   ├── CircularMaze.h
-│   ├── mondrian_maze.h
-│   ├── pathfinder.h
-│   └── visualizer.h
-├── Makefile                # 构建脚本
-├── LICENSE                 
-├── .gitignore              
-└── README.md               
-```
-
----
 
 ## 使用说明
 
